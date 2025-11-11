@@ -1,4 +1,4 @@
-// src/App.js (Versão com Polling de Status)
+// src/App.js (Versão com Barra de Progresso e Correção de Dark Mode)
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import ConsultaForm from './components/ConsultaForm';
@@ -10,12 +10,11 @@ import {
     consultarAPI, 
     testarConexao, 
     ingestarRepositorio, 
-    getIngestStatus // <--- NOVA IMPORTAÇÃO
+    getIngestStatus
 } from './services/api';
 import './App.css';
 
-// (Componentes Styled... AppContainer, Tabs... permanecem os mesmos)
-// ...
+// (Componentes Styled... AppContainer, Tabs, StatusIndicator... permanecem os mesmos)
 const AppContainer = styled.div`
   width: 400px;
   min-height: 500px;
@@ -45,7 +44,6 @@ const Tab = styled.button`
     background: ${props => props.active ? '#0366d6' : '#f6f8fa'};
   }
   
-  /* Desabilita outras abas durante a ingestão */
   &:disabled {
     color: #999;
     cursor: not-allowed;
@@ -63,36 +61,81 @@ const StatusIndicator = styled.div`
   border: 1px solid ${props => props.connected ? '#34d058' : '#f97583'};
 `;
 
+// --- INÍCIO DA CORREÇÃO DE DARK MODE ---
 const Message = styled.div`
   padding: 10px;
   margin-top: 15px;
   border-radius: 6px;
   font-size: 14px;
+  
+  /* Light Mode (default) */
   background-color: ${props => (props.type === 'error' ? '#ffeef0' : (props.type === 'info' ? '#f1f8ff' : '#e6ffed'))};
   color: ${props => (props.type === 'error' ? '#cb2431' : (props.type === 'info' ? '#0366d6' : '#22863a'))};
   border: 1px solid ${props => (props.type === 'error' ? '#f97583' : (props.type === 'info' ? '#0366d6' : '#34d058'))};
+
+  /* Correção para Dark Mode (baseado no seu StyledComponents.js) */
+  @media (prefers-color-scheme: dark) {
+    background-color: ${props => (props.type === 'error' ? 'rgba(248, 81, 73, 0.1)' : (props.type === 'info' ? 'rgba(88, 166, 255, 0.1)' : 'rgba(86, 211, 100, 0.1)'))};
+    color: ${props => (props.type === 'error' ? 'var(--error-color, #f85149)' : (props.type === 'info' ? 'var(--primary-color, #58a6ff)' : 'var(--success-color, #56d364)'))};
+    border: 1px solid ${props => (props.type === 'error' ? 'var(--error-color, #f85149)' : (props.type === 'info' ? 'var(--primary-color, #58a6ff)' : 'var(--success-color, #56d364)'))};
+  }
 `;
-// ...
+// --- FIM DA CORREÇÃO DE DARK MODE ---
+
+
+// --- INÍCIO DA NOVA BARRA DE PROGRESSO ---
+const ProgressBarContainer = styled.div`
+  width: 100%;
+  height: 8px;
+  background-color: #e1e4e8; /* Fundo light mode */
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 15px;
+
+  @media (prefers-color-scheme: dark) {
+    background-color: var(--border-color, #30363d); /* Fundo dark mode */
+  }
+`;
+
+const ProgressBar = styled.div`
+  width: 100%;
+  height: 100%;
+  background-color: var(--primary-color, #0366d6);
+  animation: indeterminate 2s linear infinite;
+  transform-origin: left;
+
+  /* Animação de "ida e volta" */
+  @keyframes indeterminate {
+    0% {
+      transform: translateX(-100%) scaleX(0.5);
+    }
+    50% {
+      transform: translateX(0%) scaleX(0.5);
+    }
+    100% {
+      transform: translateX(100%) scaleX(0.5);
+    }
+  }
+`;
+// --- FIM DA NOVA BARRA DE PROGRESSO ---
+
 
 function App() {
   const [activeTab, setActiveTab] = useState('ingestao');
   const [backendStatus, setBackendStatus] = useState(null);
   
-  // Estados da Consulta
   const [consultaResultado, setConsultaResultado] = useState(null);
   const [consultaLoading, setConsultaLoading] = useState(false);
   const [consultaError, setConsultaError] = useState(null);
 
-  // Estados da Ingestão
   const [ingestLoading, setIngestLoading] = useState(false);
   const [ingestError, setIngestError] = useState(null);
   const [ingestSuccess, setIngestSuccess] = useState(null);
+  const [ingestStatusText, setIngestStatusText] = useState(null); // Para o texto "Status: started..."
   
-  // --- NOVO ESTADO PARA POLLING ---
   const [pollingJobId, setPollingJobId] = useState(null);
-  const pollingInterval = useRef(null); // Guarda a referência do intervalo
+  const pollingInterval = useRef(null); 
 
-  // Efeito para verificar conexão (como antes)
   useEffect(() => {
     const verificarConexao = async () => {
       try {
@@ -105,53 +148,47 @@ function App() {
     verificarConexao();
   }, []);
 
-  // --- NOVO EFEITO PARA POLLING DE STATUS ---
   useEffect(() => {
-    // Se não há Job ID para monitorar, pare
     if (!pollingJobId) {
       if (pollingInterval.current) clearInterval(pollingInterval.current);
       return;
     }
 
-    // Se tem um Job ID, comece a verificar
     pollingInterval.current = setInterval(async () => {
-      console.log("Verificando status do job:", pollingJobId);
       try {
         const statusData = await getIngestStatus(pollingJobId);
         
         if (statusData.status === 'finished') {
-          // SUCESSO!
           clearInterval(pollingInterval.current);
           setPollingJobId(null);
           setIngestLoading(false);
-          setIngestSuccess(statusData.result || "Ingestão concluída com sucesso!");
+          setIngestSuccess(statusData.result || "Ingestão concluída com sucesso!"); // Mensagem final de sucesso
+          setIngestStatusText(null); // Limpa o status
           setIngestError(null);
         } else if (statusData.status === 'failed') {
-          // FALHA!
           clearInterval(pollingInterval.current);
           setPollingJobId(null);
           setIngestLoading(false);
           setIngestError(statusData.error || "A ingestão falhou no backend.");
+          setIngestStatusText(null); // Limpa o status
           setIngestSuccess(null);
         } else {
-          // AINDA RODANDO ('queued' ou 'started')
-          setIngestSuccess(`Status: ${statusData.status}...`);
+          // Atualiza o texto de status (queued ou started)
+          setIngestStatusText(`Status: ${statusData.status}...`);
         }
       } catch (err) {
-        console.error("Erro no polling:", err);
         clearInterval(pollingInterval.current);
         setPollingJobId(null);
         setIngestLoading(false);
         setIngestError("Erro ao verificar status da ingestão.");
       }
-    }, 3000); // Verifica a cada 3 segundos
+    }, 3000);
 
-    // Limpa o intervalo se o componente for desmontado
     return () => clearInterval(pollingInterval.current);
-  }, [pollingJobId]); // Este efeito depende do pollingJobId
+  }, [pollingJobId]);
 
-  // Handler da Consulta (igual)
   const handleConsulta = async (dados) => {
+    // ... (lógica da consulta não mudou)
     setConsultaLoading(true);
     setConsultaError(null);
     setConsultaResultado(null);
@@ -165,23 +202,21 @@ function App() {
     }
   };
 
-  // Handler da Ingestão (MODIFICADO)
   const handleIngestao = async (dados) => {
     setIngestLoading(true);
     setIngestError(null);
     setIngestSuccess(null);
+    setIngestStatusText(null); // Limpa status anterior
     
     try {
       const resposta = await ingestarRepositorio(dados);
-      // SUCESSO! Inicia o polling.
-      setIngestSuccess(resposta.mensagem || 'Ingestão enfileirada...');
-      setPollingJobId(resposta.job_id); // <-- ISSO DISPARA O 'useEffect'
+      setIngestStatusText(resposta.mensagem || 'Ingestão enfileirada...'); // Status inicial
+      setPollingJobId(resposta.job_id); // Dispara o polling
     } catch (erro) {
       console.error('Erro na ingestão:', erro);
       setIngestError('Erro ao iniciar ingestão.');
-      setIngestLoading(false); // Para o loading se a chamada inicial falhar
+      setIngestLoading(false); 
     }
-    // Não paramos o 'loading' aqui. O 'useEffect' irá pará-lo.
   };
 
   return (
@@ -200,21 +235,21 @@ function App() {
         <Tab 
           active={activeTab === 'ingestao'} 
           onClick={() => setActiveTab('ingestao')}
-          disabled={ingestLoading} /* Desabilita a aba */
+          disabled={ingestLoading}
         >
           Ingestão
         </Tab>
         <Tab 
           active={activeTab === 'consulta'} 
           onClick={() => setActiveTab('consulta')}
-          disabled={ingestLoading} /* Desabilita a aba */
+          disabled={ingestLoading}
         >
           Consulta
         </Tab>
         <Tab 
           active={activeTab === 'relatorio'} 
           onClick={() => setActiveTab('relatorio')}
-          disabled={ingestLoading} /* Desabilita a aba */
+          disabled={ingestLoading}
         >
           Relatório
         </Tab>
@@ -223,9 +258,23 @@ function App() {
       {activeTab === 'ingestao' && (
         <>
           <IngestaoForm onSubmit={handleIngestao} loading={ingestLoading} />
-          {/* Mostra mensagens com cores diferentes */}
-          {ingestLoading && ingestSuccess && <Message type="info">{ingestSuccess}</Message>}
+          
+          {/* --- RENDERIZAÇÃO DA BARRA E MENSAGENS --- */}
+          {ingestLoading && (
+            <>
+              {/* A nova Barra de Progresso */}
+              <ProgressBarContainer>
+                <ProgressBar />
+              </ProgressBarContainer>
+              {/* A mensagem de status (azul) */}
+              {ingestStatusText && <Message type="info">{ingestStatusText}</Message>}
+            </>
+          )}
+          
+          {/* Mensagem final de Sucesso (verde) */}
           {!ingestLoading && ingestSuccess && <Message type="success">{ingestSuccess}</Message>}
+          
+          {/* Mensagem final de Erro (vermelha) */}
           {ingestError && <Message type="error">{ingestError}</Message>}
         </>
       )}
