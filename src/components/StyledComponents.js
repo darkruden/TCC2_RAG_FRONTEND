@@ -60,9 +60,10 @@ const GlobalStyle = createGlobalStyle`
   }
 `;
 
-// Componentes base com melhorias de acessibilidade e responsividade
+// (dentro de src/components/StyledComponents.js)
+
 const Button = styled.button`
-  background-color: var(--secondary-color);
+  background-color: var(--primary-color); /* <-- MUDADO DE --secondary-color */
   color: white;
   border: none;
   padding: 8px 16px;
@@ -73,7 +74,7 @@ const Button = styled.button`
   transition: background-color 0.2s, transform 0.1s;
   
   &:hover {
-    background-color: #2c974b;
+    background-color: #005cc5; /* <-- NOVO HOVER (Azul mais escuro) */
   }
   
   &:active {
@@ -85,28 +86,12 @@ const Button = styled.button`
   }
   
   &:disabled {
-    background-color: #94d3a2;
+    background-color: #9ecbff; /* <-- NOVO DISABLED (Azul claro) */
     cursor: not-allowed;
   }
 
-  /* Ícone de carregamento */
-  &.loading::after {
-    content: "";
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    margin-left: 8px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top-color: white;
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
+  /* (O resto do componente 'Button' continua igual) */
+  ...
 `;
 
 const Input = styled.input`

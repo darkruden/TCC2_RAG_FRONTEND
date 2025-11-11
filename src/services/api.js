@@ -40,9 +40,25 @@ export const gerarRelatorio = async (dados) => {
   return data;
 };
 
+export const ingestarRepositorio = async (dados) => {
+  const c = await client();
+  // 'dados' será: { repositorio: "user/repo", issues_limit: 50, ... }
+  const { data } = await c.post('/api/ingest', dados);
+  return data;
+};
+
 export const extrairInfoRepositorio = () => {
   const url = window.location.href;
   const m = url.match(/github\.com\/([^\/]+\/[^\/]+)/);
   if (m && m[1]) return { repositorio: m[1], url };
   throw new Error('Não foi possível identificar o repositório');
+};
+
+// (Adicione isso dentro do src/services/api.js)
+
+export const getIngestStatus = async (jobId) => {
+  const c = await client();
+  // Chama o novo endpoint que criamos
+  const { data } = await c.get(`/api/ingest/status/${jobId}`);
+  return data; // Retorna { status: '...', result: '...', error: '...' }
 };

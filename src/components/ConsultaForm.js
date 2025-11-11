@@ -1,5 +1,8 @@
+// src/components/ConsultaForm.js (Refatorado)
 import React, { useState } from 'react';
 import styled from 'styled-components';
+// --- IMPORTA OS COMPONENTES PADRONIZADOS ---
+import { Button, Input, TextArea } from './StyledComponents';
 
 const FormContainer = styled.div`
   margin-bottom: 20px;
@@ -17,56 +20,8 @@ const Label = styled.label`
   color: #24292e;
 `;
 
-const Input = styled.input`
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  font-size: 14px;
-  
-  &:focus {
-    border-color: #0366d6;
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.3);
-  }
-`;
-
-const TextArea = styled.textarea`
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  font-size: 14px;
-  min-height: 100px;
-  resize: vertical;
-  
-  &:focus {
-    border-color: #0366d6;
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.3);
-  }
-`;
-
-const Button = styled.button`
-  background-color: #2ea44f;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  
-  &:hover {
-    background-color: #2c974b;
-  }
-  
-  &:disabled {
-    background-color: #94d3a2;
-    cursor: not-allowed;
-  }
-`;
+// --- AS DEFINIÇÕES DE INPUT, TEXTAREA E BUTTON FORAM REMOVIDAS ---
+// (Agora estamos usando as globais)
 
 const ConsultaForm = ({ onSubmit, loading }) => {
   const [query, setQuery] = useState('');
@@ -91,7 +46,7 @@ const ConsultaForm = ({ onSubmit, loading }) => {
       <form onSubmit={handleSubmit}>
         <FormGroup>
           <Label htmlFor="repositorio">Repositório GitHub:</Label>
-          <Input
+          <Input  /* <-- Usa o Input padronizado */
             type="text"
             id="repositorio"
             placeholder="usuario/repositorio"
@@ -103,7 +58,7 @@ const ConsultaForm = ({ onSubmit, loading }) => {
         
         <FormGroup>
           <Label htmlFor="query">Consulta:</Label>
-          <TextArea
+          <TextArea /* <-- Usa o TextArea padronizado */
             id="query"
             placeholder="Digite sua consulta em linguagem natural..."
             value={query}
@@ -112,7 +67,10 @@ const ConsultaForm = ({ onSubmit, loading }) => {
           />
         </FormGroup>
         
-        <Button type="submit" disabled={loading}>
+        <Button /* <-- Usa o Button padronizado (agora azul) */
+          type="submit" 
+          disabled={loading}
+        >
           {loading ? 'Consultando...' : 'Consultar'}
         </Button>
       </form>
