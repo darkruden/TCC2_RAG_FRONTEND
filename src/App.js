@@ -1,41 +1,40 @@
-// src/App.js (MUI - Corrigido com os typos)
+// src/App.js (MUI - Com persistência TOTAL de estado)
 import React, { useState, useEffect, useRef } from 'react';
-// Importações de layout do MUI
 import { 
-  Container, Box, Tabs, Tab, Alert, AlertTitle, LinearProgress, Stack 
+  Container, Box, Tabs, Tab, Alert, LinearProgress, Stack 
 } from '@mui/material';
-// Importações do 'lab' para componentes mais complexos
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-// Importações dos seus componentes
 import ConsultaForm from './components/ConsultaForm';
 import ResultadoConsulta from './components/ResultadoConsulta';
 import RelatorioForm from './components/RelatorioForm';
 import IngestaoForm from './components/IngestaoForm'; 
 import Header from './components/Header';
 import { 
-    consultarAPI, 
-    testarConexao, 
-    ingestarRepositorio, 
-    getIngestStatus
+    consultarAPI, testarConexao, ingestarRepositorio, getIngestStatus
 } from './services/api';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('ingestao'); // MUI Tabs usam 'value'
+  const [activeTab, setActiveTab] = useState('ingestao');
   const [backendStatus, setBackendStatus] = useState(null);
   
+  // --- Estado da Consulta (Já persistido) ---
+  const [repositorioConsulta, setRepositorioConsulta] = useState('');
+  const [query, setQuery] = useState('');
   const [consultaResultado, setConsultaResultado] = useState(null);
   const [consultaLoading, setConsultaLoading] = useState(false);
   const [consultaError, setConsultaError] = useState(null);
 
+  // --- INÍCIO DA MUDANÇA: Estado de Ingestão (Agora persistido) ---
   const [ingestLoading, setIngestLoading] = useState(false);
   const [ingestError, setIngestError] = useState(null);
   const [ingestSuccess, setIngestSuccess] = useState(null);
   const [ingestStatusText, setIngestStatusText] = useState(null); 
-  
   const [pollingJobId, setPollingJobId] = useState(null);
+  // --- FIM DA MUDANÇA ---
+  
   const pollingInterval = useRef(null); 
 
-  // ... (Toda a lógica de useEffect e handlers permanece a mesma) ...
+  // ... (useEffect de testarConexao permanece igual) ...
   useEffect(() => {
     const verificarConexao = async () => {
       try {
@@ -48,6 +47,8 @@ function App() {
     verificarConexao();
   }, []);
 
+  // ... (useEffect de polling permanece igual - ele vai funcionar automaticamente
+  //      quando o 'pollingJobId' for carregado do storage) ...
   useEffect(() => {
     if (!pollingJobId) {
       if (pollingInterval.current) clearInterval(pollingInterval.current);
@@ -82,28 +83,81 @@ function App() {
     return () => clearInterval(pollingInterval.current);
   }, [pollingJobId]);
 
-  const handleConsulta = async (dados) => { /* ... (lógica igual) ... */ 
+
+  // --- MUDANÇA: useEffect de CARREGAR estado (agora inclui ingestão) ---
+  useEffect(() => {
+    if (window.chrome && window.chrome.storage) {
+      chrome.storage.local.get([
+        // Chaves da Consulta
+        'repositorioConsulta', 'query', 'consultaResultado',
+        // Novas Chaves da Ingestão
+        'ingestLoading', 'ingestError', 'ingestSuccess', 'ingestStatusText', 'pollingJobId'
+      ], (result) => {
+        // Carrega Consulta
+        if (result.repositorioConsulta) setRepositorioConsulta(result.repositorioConsulta);
+        if (result.query) setQuery(result.query);
+        if (result.consultaResultado) setConsultaResultado(result.consultaResultado);
+        
+        // Carrega Ingestão
+        if (result.ingestLoading) setIngestLoading(result.ingestLoading);
+        if (result.ingestError) setIngestError(result.ingestError);
+        if (result.ingestSuccess) setIngestSuccess(result.ingestSuccess);
+        if (result.ingestStatusText) setIngestStatusText(result.ingestStatusText);
+        if (result.pollingJobId) setPollingJobId(result.pollingJobId); // <-- Isso reinicia o polling!
+      });
+    }
+  }, []); // Só roda na abertura
+
+  // --- MUDANÇA: useEffects para SALVAR estado (agora inclui ingestão) ---
+  
+  // Salva estado da Consulta
+  useEffect(() => { if (window.chrome && window.chrome.storage) { chrome.storage.local.set({ repositorioConsulta }); } }, [repositorioConsulta]);
+  useEffect(() => { if (window.chrome && window.chrome.storage) { chrome.storage.local.set({ query }); } }, [query]);
+  useEffect(() => { if (window.chrome && window.chrome.storage) { chrome.storage.local.set({ consultaResultado }); } }, [consultaResultado]);
+  
+  // Salva estado da Ingestão
+  useEffect(() => { if (window.chrome && window.chrome.storage) { chrome.storage.local.set({ ingestLoading }); } }, [ingestLoading]);
+  useEffect(() => { if (window.chrome && window.chrome.storage) { chrome.storage.local.set({ ingestError }); } }, [ingestError]);
+  useEffect(() => { if (window.chrome && window.chrome.storage) { chrome.storage.local.set({ ingestSuccess }); } }, [ingestSuccess]);
+  useEffect(() => { if (window.chrome && window.chrome.storage) { chrome.storage.local.set({ ingestStatusText }); } }, [ingestStatusText]);
+  useEffect(() => { if (window.chrome && window.chrome.storage) { chrome.storage.local.set({ pollingJobId }); } }, [pollingJobId]);
+
+  // ... (handleConsulta permanece igual) ...
+  const handleConsulta = async () => { 
     setConsultaLoading(true);
     setConsultaError(null);
-    setConsultaResultado(null);
+    setConsultaResultado(null); 
     try {
+      const dados = { 
+        query: query.trim(),
+        repositorio: repositorioConsulta.trim(),
+        filtros: {}
+      };
       const resposta = await consultarAPI(dados);
-      setConsultaResultado(resposta);
+      setConsultaResultado(resposta); 
     } catch (erro) {
       setConsultaError('Erro ao processar consulta.');
     } finally {
       setConsultaLoading(false);
     }
   };
-  const handleIngestao = async (dados) => { /* ... (lógica igual) ... */ 
+
+  // --- MUDANÇA: handleIngestao agora limpa o storage antes de começar ---
+  const handleIngestao = async (dados) => { 
     setIngestLoading(true);
     setIngestError(null);
     setIngestSuccess(null);
     setIngestStatusText(null);
+    
+    // Limpa mensagens antigas do storage
+    if (window.chrome && window.chrome.storage) {
+        chrome.storage.local.remove(['ingestError', 'ingestSuccess']);
+    }
+
     try {
       const resposta = await ingestarRepositorio(dados);
       setIngestStatusText(resposta.mensagem || 'Ingestão enfileirada...');
-      setPollingJobId(resposta.job_id);
+      setPollingJobId(resposta.job_id); // Isso salva o Job ID no storage (via useEffect)
     } catch (erro) {
       console.error('Erro na ingestão:', erro);
       setIngestError('Erro ao iniciar ingestão.');
@@ -116,7 +170,7 @@ function App() {
   };
 
   return (
-    // 'Container' centraliza e define a largura. 'disableGutters' remove padding.
+    // O JSX/HTML permanece o mesmo da última versão corrigida
     <Container maxWidth="xs" disableGutters sx={{ minHeight: '500px', maxHeight: '600px', overflowY: 'auto', p: 2.5 }}>
       <Header />
       
@@ -126,13 +180,12 @@ function App() {
         </Alert>
       )}
       
-      {/* 'TabContext' gerencia o estado das abas */}
       <TabContext value={activeTab}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList 
             onChange={handleTabChange} 
             aria-label="Abas principais"
-            variant="fullWidth" // Abas ocupam espaço total
+            variant="fullWidth"
           >
             <Tab label="Ingestão" value="ingestao" disabled={ingestLoading} />
             <Tab label="Consulta" value="consulta" disabled={ingestLoading} />
@@ -140,14 +193,17 @@ function App() {
           </TabList>
         </Box>
         
-        {/* 'TabPanel' remove o padding padrão com sx={{ p: 0 }} */}
         <TabPanel value="ingestao" sx={{ p: 0, pt: 2 }}>
+          {/* O IngestaoForm não precisa mudar */}
           <IngestaoForm onSubmit={handleIngestao} loading={ingestLoading} />
-          {/* 'Stack' é o VStack/HStack do MUI */}
           <Stack spacing={1.5} sx={{ mt: 2 }}>
+            {/* Todos estes 'Alerts' e o 'LinearProgress' agora vão
+              mostrar o estado correto mesmo se o popup for fechado
+              e reaberto no meio de uma ingestão.
+            */}
             {ingestLoading && (
               <>
-                <LinearProgress /> {/* Barra de progresso */}
+                <LinearProgress />
                 {ingestStatusText && (
                   <Alert severity="info">{ingestStatusText}</Alert>
                 )}
@@ -163,7 +219,14 @@ function App() {
         </TabPanel>
         
         <TabPanel value="consulta" sx={{ p: 0, pt: 2 }}>
-          <ConsultaForm onSubmit={handleConsulta} loading={consultaLoading} />
+          <ConsultaForm 
+            onSubmit={handleConsulta} 
+            loading={consultaLoading}
+            query={query}
+            setQuery={setQuery}
+            repositorio={repositorioConsulta}
+            setRepositorio={setRepositorioConsulta}
+          />
           {consultaLoading && <LinearProgress sx={{ mt: 2 }} />}
           {consultaResultado && <ResultadoConsulta resultado={consultaResultado} />}
           {consultaError && (
@@ -175,9 +238,6 @@ function App() {
           <RelatorioForm />
         </TabPanel>
       </TabContext> 
-      {/* CORREÇÃO 1: Removido o '>>' daqui (era linha 174)
-        CORREÇÃO 2: A tag de fechamento agora é </Container> (era </Box>)
-      */}
     </Container> 
   );
 }

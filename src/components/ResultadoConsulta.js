@@ -16,7 +16,13 @@ const ResultadoConsulta = ({ resultado }) => {
       
       {/* 'Box' para a resposta de markdown */}
       <Box sx={{ mb: 2, fontSize: '0.9rem', '& p': { m: 0 } }}>
-        <ReactMarkdown>{resposta}</ReactMarkdown>
+      <ReactMarkdown
+          // Esta linha força todos os links gerados pelo LLM
+          // a abrirem em uma nova aba no clique esquerdo.
+          linkTarget="_blank" 
+        >
+          {resposta}
+        </ReactMarkdown>
       </Box>
       
       {fontes && fontes.length > 0 && (
