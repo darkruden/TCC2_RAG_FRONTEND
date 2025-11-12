@@ -1,15 +1,15 @@
 // src/components/ConsultaForm.js (Corrigido para Chakra UI v3)
 import React, { useState } from 'react';
-// 1. Importando os nomes CORRETOS (Field, FieldLabel)
 import {
   Box,
   Button,
-  Field, // <-- MUDANÇA: Era FormControl
-  FieldLabel, // <-- MUDANÇA: Era FormLabel
+  Field,        // V3
+  FieldLabel,   // V3
   Input,
   Textarea,
   VStack
 } from '@chakra-ui/react';
+// NENHUMA outra importação aqui
 
 const ConsultaForm = ({ onSubmit, loading }) => {
   const [query, setQuery] = useState('');
@@ -31,9 +31,8 @@ const ConsultaForm = ({ onSubmit, loading }) => {
     <Box as="form" onSubmit={handleSubmit} width="100%">
       <VStack spacing={4}>
         
-        {/* 2. Usando 'Field' e 'FieldLabel' */}
-        <Field isRequired> {/* <-- MUDANÇA */}
-          <FieldLabel htmlFor="repositorio">Repositório GitHub:</FieldLabel> {/* <-- MUDANÇA */}
+        <Field isRequired>
+          <FieldLabel htmlFor="repositorio">Repositório GitHub:</FieldLabel>
           <Input
             id="repositorio"
             placeholder="usuario/repositorio"
@@ -42,8 +41,8 @@ const ConsultaForm = ({ onSubmit, loading }) => {
           />
         </Field>
         
-        <Field isRequired> {/* <-- MUDANÇA */}
-          <FieldLabel htmlFor="query">Consulta:</FieldLabel> {/* <-- MUDANÇA */}
+        <Field isRequired>
+          <FieldLabel htmlFor="query">Consulta:</FieldLabel>
           <Textarea
             id="query"
             placeholder="Digite sua consulta em linguagem natural..."
@@ -61,7 +60,6 @@ const ConsultaForm = ({ onSubmit, loading }) => {
         >
           Consultar
         </Button>
-        
       </VStack>
     </Box>
   );

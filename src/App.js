@@ -1,16 +1,14 @@
-// src/App.js (Corrigido para Chakra UI v3 - Nomes Finais)
+// src/App.js (Corrigido para Chakra UI v3)
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Tabs,
-  TabsList,       // <-- MUDANÇA (Era TabList)
-  TabsTrigger,    // <-- MUDANÇA (Era Tab)
-  TabsContentGroup, // <-- MUDANÇA (Era TabPanels)
-  TabsContent,      // <-- MUDANÇA (Era TabPanel)
+  TabsList,           // V3
+  TabsTrigger,        // V3
+  TabsContentGroup,   // V3
+  TabsContent,        // V3
   Alert,
-  AlertIndicator, // <-- MUDANÇA (Era AlertIcon)
-  AlertTitle,
-  AlertDescription,
+  AlertIndicator,     // V3
   Progress,
   VStack
 } from '@chakra-ui/react';
@@ -27,7 +25,7 @@ import {
 } from './services/api';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('ingestao'); // v3 usa 'value'
+  const [activeTab, setActiveTab] = useState('ingestao'); // V3 usa 'value'
   const [backendStatus, setBackendStatus] = useState(null);
   
   const [consultaResultado, setConsultaResultado] = useState(null);
@@ -60,11 +58,9 @@ function App() {
       if (pollingInterval.current) clearInterval(pollingInterval.current);
       return;
     }
-
     pollingInterval.current = setInterval(async () => {
       try {
         const statusData = await getIngestStatus(pollingJobId);
-        
         if (statusData.status === 'finished') {
           clearInterval(pollingInterval.current);
           setPollingJobId(null);
@@ -88,7 +84,6 @@ function App() {
         setIngestError("Erro ao verificar status da ingestão.");
       }
     }, 3000);
-
     return () => clearInterval(pollingInterval.current);
   }, [pollingJobId]);
 
@@ -111,7 +106,6 @@ function App() {
     setIngestError(null);
     setIngestSuccess(null);
     setIngestStatusText(null);
-    
     try {
       const resposta = await ingestarRepositorio(dados);
       setIngestStatusText(resposta.mensagem || 'Ingestão enfileirada...');
@@ -123,37 +117,34 @@ function App() {
     }
   };
 
-
   return (
     <Box w="400px" minH="500px" maxH="600px" overflowY="auto" p={5}>
       <Header />
       
       {backendStatus !== null && (
         <Alert status={backendStatus ? 'success' : 'error'} mb={4} variant="subtle">
-          <AlertIndicator /> {/* <-- MUDANÇA */}
+          <AlertIndicator />
           {backendStatus 
             ? 'Conectado ao backend' 
             : 'Não foi possível conectar ao backend'}
         </Alert>
       )}
       
-      {/* O componente 'Tabs' v3 usa 'value' e 'onValueChange' */}
       <Tabs 
         value={activeTab} 
-        onValueChange={(e) => setActiveTab(e.value)} // v3 passa um objeto
+        onValueChange={(e) => setActiveTab(e.value)} // V3
         isLazy
         variant="line"
         colorScheme="blue"
       >
-        <TabsList> {/* <-- MUDANÇA */}
-          <TabsTrigger value="ingestao" isDisabled={ingestLoading}>Ingestão</TabsTrigger> {/* <-- MUDANÇA */}
-          <TabsTrigger value="consulta" isDisabled={ingestLoading}>Consulta</TabsTrigger> {/* <-- MUDANÇA */}
-          <TabsTrigger value="relatorio" isDisabled={ingestLoading}>Relatório</TabsTrigger> {/* <-- MUDANÇA */}
+        <TabsList>
+          <TabsTrigger value="ingestao" isDisabled={ingestLoading}>Ingestão</TabsTrigger>
+          <TabsTrigger value="consulta" isDisabled={ingestLoading}>Consulta</TabsTrigger>
+          <TabsTrigger value="relatorio" isDisabled={ingestLoading}>Relatório</TabsTrigger>
         </TabsList>
         
-        <TabsContentGroup> {/* <-- MUDANÇA */}
-          {/* Painel de Ingestão */}
-          <TabsContent value="ingestao"> {/* <-- MUDANÇA */}
+        <TabsContentGroup>
+          <TabsContent value="ingestao">
             <IngestaoForm onSubmit={handleIngestao} loading={ingestLoading} />
             <VStack spacing={3} mt={4}>
               {ingestLoading && (
@@ -161,7 +152,7 @@ function App() {
                   <Progress size="xs" isIndeterminate w="100%" />
                   {ingestStatusText && (
                     <Alert status="info" variant="subtle">
-                      <AlertIndicator /> {/* <-- MUDANÇA */}
+                      <AlertIndicator />
                       {ingestStatusText}
                     </Alert>
                   )}
@@ -169,34 +160,32 @@ function App() {
               )}
               {!ingestLoading && ingestSuccess && (
                 <Alert status="success" variant="subtle">
-                  <AlertIndicator /> {/* <-- MUDANÇA */}
+                  <AlertIndicator />
                   {ingestSuccess}
                 </Alert>
               )}
               {ingestError && (
                 <Alert status="error" variant="subtle">
-                  <AlertIndicator /> {/* <-- MUDANÇA */}
+                  <AlertIndicator />
                   {ingestError}
                 </Alert>
               )}
             </VStack>
           </TabsContent>
           
-          {/* Painel de Consulta */}
-          <TabsContent value="consulta"> {/* <-- MUDANÇA */}
+          <TabsContent value="consulta">
             <ConsultaForm onSubmit={handleConsulta} loading={consultaLoading} />
             {consultaLoading && <Progress size="xs" isIndeterminate mt={4} />}
             {consultaResultado && <ResultadoConsulta resultado={consultaResultado} />}
             {consultaError && (
               <Alert status="error" variant="subtle" mt={4}>
-                <AlertIndicator /> {/* <-- MUDANÇA */}
+                <AlertIndicator />
                 {consultaError}
               </Alert>
             )}
           </TabsContent>
           
-          {/* Painel de Relatório */}
-          <TabsContent value="relatorio"> {/* <-- MUDANÇA */}
+          <TabsContent value="relatorio">
             <RelatorioForm />
           </TabsContent>
         </TabsContentGroup>

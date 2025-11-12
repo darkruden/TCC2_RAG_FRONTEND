@@ -1,4 +1,4 @@
-// src/components/IngestaoForm.js (Corrigido para Chakra UI v3 - Nomes Finais)
+// src/components/IngestaoForm.js (Corrigido para Chakra UI v3)
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -7,7 +7,7 @@ import {
   FieldLabel,
   Input,
   NumberInput,
-  NumberInputInput, // <-- MUDANÇA (Era NumberInputField)
+  NumberInputInput,   // V3
   HStack,
   VStack
 } from '@chakra-ui/react';
@@ -19,7 +19,6 @@ const IngestaoForm = ({ onSubmit, loading }) => {
   const [prsLimit, setPrsLimit] = useState(20);
   const [commitsLimit, setCommitsLimit] = useState(30);
 
-  // ... (useEffect e handleSubmit permanecem os mesmos) ...
   useEffect(() => {
     if (window.chrome && chrome.tabs) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -39,7 +38,6 @@ const IngestaoForm = ({ onSubmit, loading }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!repositorio.trim()) return;
-    
     onSubmit({
       repositorio: repositorio.trim(),
       issues_limit: parseInt(issuesLimit, 10) || 50,
@@ -67,24 +65,24 @@ const IngestaoForm = ({ onSubmit, loading }) => {
           <HStack spacing={2}>
             <NumberInput
               value={issuesLimit}
-              onValueChange={(e) => setIssuesLimit(e.value)} // v3 passa objeto
+              onValueChange={(e) => setIssuesLimit(e.value)} // V3
               min={0}
             >
-              <NumberInputInput title="Issues" /> {/* <-- MUDANÇA */}
+              <NumberInputInput title="Issues" />
             </NumberInput>
             <NumberInput
               value={prsLimit}
-              onValueChange={(e) => setPrsLimit(e.value)} // v3 passa objeto
+              onValueChange={(e) => setPrsLimit(e.value)} // V3
               min={0}
             >
-              <NumberInputInput title="Pull Requests" /> {/* <-- MUDANÇA */}
+              <NumberInputInput title="Pull Requests" />
             </NumberInput>
             <NumberInput
               value={commitsLimit}
-              onValueChange={(e) => setCommitsLimit(e.value)} // v3 passa objeto
+              onValueChange={(e) => setCommitsLimit(e.value)} // V3
               min={0}
             >
-              <NumberInputInput title="Commits" /> {/* <-- MUDANÇA */}
+              <NumberInputInput title="Commits" />
             </NumberInput>
           </HStack>
         </Field>

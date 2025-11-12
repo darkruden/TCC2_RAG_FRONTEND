@@ -1,4 +1,4 @@
-// src/components/ResultadoConsulta.js (Corrigido para Chakra UI v3 - Nomes Finais)
+// src/components/ResultadoConsulta.js (Corrigido para Chakra UI v3)
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
@@ -8,7 +8,7 @@ import {
   List,
   ListItem,
   Text,
-  Separator // <-- MUDANÇA (Era Divider)
+  Separator // V3
 } from '@chakra-ui/react';
 
 const ResultadoConsulta = ({ resultado }) => {
@@ -24,7 +24,7 @@ const ResultadoConsulta = ({ resultado }) => {
       
       {fontes && fontes.length > 0 && (
         <>
-          <Separator /> {/* <-- MUDANÇA */}
+          <Separator />
           
           <Box pt={4}>
             <Heading size="sm" mb={2}>Fontes:</Heading>
