@@ -1,41 +1,29 @@
-// src/components/RelatorioForm.js (Refatorado)
+// src/components/RelatorioForm.js (Refatorado com Chakra UI)
 import React, { useState } from 'react';
-import styled from 'styled-components';
-// --- IMPORTA OS COMPONENTES PADRONIZADOS ---
-import { Button, Select } from './StyledComponents';
+// 1. Importar componentes Chakra
+import {
+  Box,
+  Button,
+  ButtonGroup,
+  Field,
+  FieldLabel,
+  Select,
+  VStack
+} from '@chakra-ui/react';
+// 2. Não precisamos mais de 'styled-components'
+// import styled from 'styled-components';
+// import { Button, Select } from './StyledComponents';
 
-// (Estes estilos locais podem ser mantidos ou movidos)
-const FormContainer = styled.div`
-  margin-bottom: 20px;
-`;
-const FormGroup = styled.div`
-  margin-bottom: 15px;
-`;
-const Label = styled.label`
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 600;
-  font-size: 14px;
-  color: #24292e;
-  
-  /* Corrigindo a cor do label no dark mode */
-  @media (prefers-color-scheme: dark) {
-    color: var(--text-color, #c9d1d9);
-  }
-`;
-const ButtonGroup = styled.div`
-  display: flex;
-  gap: 10px;
-`;
+// 3. Todos os 'styled-components' (FormContainer, FormGroup, Label, ButtonGroup) foram removidos.
 
 const RelatorioForm = () => {
   const [loading, setLoading] = useState(false);
   const [formato, setFormato] = useState('markdown');
 
+  // A lógica de 'handleGerarRelatorio' e 'handleDownload' permanece igual
   const handleGerarRelatorio = (e) => {
     e.preventDefault();
     setLoading(true);
-    // Lógica para gerar relatório (simulação)
     console.log(`Gerando relatório em formato ${formato}...`);
     setTimeout(() => {
       setLoading(false);
@@ -43,16 +31,17 @@ const RelatorioForm = () => {
   };
 
   const handleDownload = () => {
-    // Lógica de download
     console.log("Iniciando download...");
   };
 
+  // --- 4. O 'return' agora usa componentes Chakra UI ---
   return (
-    <FormContainer>
-      <form onSubmit={handleGerarRelatorio}>
-        <FormGroup>
-          <Label htmlFor="formato-relatorio">Formato:</Label>
-          {/* --- USA O SELECT PADRONIZADO --- */}
+    <Box as="form" onSubmit={handleGerarRelatorio} width="100%">
+      <VStack spacing={4}>
+        
+        <Field>
+          <FieldLabel htmlFor="formato-relatorio">Formato:</FieldLabel>
+          {/* 5. O 'Select' nativo do Chakra */}
           <Select
             id="formato-relatorio"
             value={formato}
@@ -61,21 +50,32 @@ const RelatorioForm = () => {
             <option value="markdown">Markdown (.md)</option>
             <option value="pdf">PDF (.pdf)</option>
           </Select>
-        </FormGroup>
+        </Field>
 
-        <ButtonGroup>
-          {/* --- USA O BUTTON PADRONIZADO --- */}
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Gerando...' : 'Gerar Relatório'}
+        {/* 6. 'ButtonGroup' para agrupar botões */}
+        <ButtonGroup spacing={2} width="100%">
+          <Button
+            type="submit"
+            colorScheme="blue"
+            isLoading={loading}
+            loadingText="Gerando..."
+            width="100%"
+          >
+            Gerar Relatório
           </Button>
           
-          {/* (Podemos estilizar este 2º botão de forma diferente se quisermos) */}
-          <Button type="button" onClick={handleDownload} disabled={loading}>
+          <Button
+            type="button"
+            onClick={handleDownload}
+            disabled={loading}
+            width="100%"
+            variant="outline" // Dando um estilo diferente (contorno)
+          >
             Download
           </Button>
         </ButtonGroup>
-      </form>
-    </FormContainer>
+      </VStack>
+    </Box>
   );
 };
 

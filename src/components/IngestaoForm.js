@@ -1,32 +1,17 @@
-// src/components/IngestaoForm.js
+// src/components/IngestaoForm.js (Corrigido para Chakra UI v3 - Nomes Finais)
 import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
-// Importa os estilos que você já criou
-import { Button, Input } from './StyledComponents'; 
+import {
+  Box,
+  Button,
+  Field,
+  FieldLabel,
+  Input,
+  NumberInput,
+  NumberInputInput, // <-- MUDANÇA (Era NumberInputField)
+  HStack,
+  VStack
+} from '@chakra-ui/react';
 import { extrairInfoRepositorio } from '../services/api';
-
-// Reutiliza os estilos do seu ConsultaForm
-const FormContainer = styled.div`
-  margin-bottom: 20px;
-`;
-
-const FormGroup = styled.div`
-  margin-bottom: 15px;
-`;
-
-const Label = styled.label`
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 600;
-  font-size: 14px;
-  color: #24292e;
-`;
-
-// Estilo para campos de número
-const NumberInput = styled(Input)`
-  width: 80px;
-  margin-right: 10px;
-`;
 
 const IngestaoForm = ({ onSubmit, loading }) => {
   const [repositorio, setRepositorio] = useState('');
@@ -34,11 +19,8 @@ const IngestaoForm = ({ onSubmit, loading }) => {
   const [prsLimit, setPrsLimit] = useState(20);
   const [commitsLimit, setCommitsLimit] = useState(30);
 
-  // DICA DE MELHORIA: Detecta o repositório automaticamente!
-  // Usamos a função 'extrairInfoRepositorio' que você já tem no api.js
+  // ... (useEffect e handleSubmit permanecem os mesmos) ...
   useEffect(() => {
-    // Esta função só funciona no 'content.js', mas podemos simular
-    // a extração da URL da aba ativa.
     if (window.chrome && chrome.tabs) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0] && tabs[0].url) {
@@ -50,7 +32,6 @@ const IngestaoForm = ({ onSubmit, loading }) => {
         }
       });
     } else {
-      // Para testes locais fora da extensão
       console.warn("Não é uma extensão, preencha o repo manualmente.");
     }
   }, []);
@@ -61,56 +42,64 @@ const IngestaoForm = ({ onSubmit, loading }) => {
     
     onSubmit({
       repositorio: repositorio.trim(),
-      issues_limit: parseInt(issuesLimit, 10),
-      prs_limit: parseInt(prsLimit, 10),
-      commits_limit: parseInt(commitsLimit, 10)
+      issues_limit: parseInt(issuesLimit, 10) || 50,
+      prs_limit: parseInt(prsLimit, 10) || 20,
+      commits_limit: parseInt(commitsLimit, 10) || 30
     });
   };
   
   return (
-    <FormContainer>
-      <form onSubmit={handleSubmit}>
-        <FormGroup>
-          <Label htmlFor="repositorio-ingest">Repositório GitHub:</Label>
+    <Box as="form" onSubmit={handleSubmit} width="100%">
+      <VStack spacing={4}>
+        
+        <Field isRequired>
+          <FieldLabel htmlFor="repositorio-ingest">Repositório GitHub:</FieldLabel>
           <Input
-            type="text"
             id="repositorio-ingest"
             placeholder="usuario/repositorio"
             value={repositorio}
             onChange={(e) => setRepositorio(e.target.value)}
-            required
           />
-        </FormGroup>
+        </Field>
         
-        <FormGroup>
-          <Label>Limites de Ingestão (Opcional):</Label>
-          <div>
+        <Field>
+          <FieldLabel>Limites de Ingestão (Opcional):</FieldLabel>
+          <HStack spacing={2}>
             <NumberInput
-              type="number"
-              title="Issues"
               value={issuesLimit}
-              onChange={(e) => setIssuesLimit(e.target.value)}
-            />
+              onValueChange={(e) => setIssuesLimit(e.value)} // v3 passa objeto
+              min={0}
+            >
+              <NumberInputInput title="Issues" /> {/* <-- MUDANÇA */}
+            </NumberInput>
             <NumberInput
-              type="number"
-              title="Pull Requests"
               value={prsLimit}
-              onChange={(e) => setPrsLimit(e.target.value)}
-            />
+              onValueChange={(e) => setPrsLimit(e.value)} // v3 passa objeto
+              min={0}
+            >
+              <NumberInputInput title="Pull Requests" /> {/* <-- MUDANÇA */}
+            </NumberInput>
             <NumberInput
-              type="number"
-              title="Commits"
               value={commitsLimit}
-              onChange={(e) => setCommitsLimit(e.target.value)}
-            />
-          </div>
-        </FormGroup>
+              onValueChange={(e) => setCommitsLimit(e.value)} // v3 passa objeto
+              min={0}
+            >
+              <NumberInputInput title="Commits" /> {/* <-- MUDANÇA */}
+            </NumberInput>
+          </HStack>
+        </Field>
         
-        <Button type="submit" disabled={loading}>
-          {loading ? 'Ingerindo...' : 'Iniciar Ingestão'}
+        <Button
+          type="submit"
+          colorScheme="blue"
+          isLoading={loading}
+          loadingText="Ingerindo..."
+          width="100%"
+        >
+          Iniciar Ingestão
         </Button>
-      </form>
-    </FormContainer>
+      </VStack>
+    </Box>
   );
 };
 

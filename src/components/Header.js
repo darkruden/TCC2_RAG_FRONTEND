@@ -1,41 +1,36 @@
+// src/components/Header.js (Refatorado com Chakra UI)
 import React from 'react';
-import styled from 'styled-components';
+// 1. Importar componentes Chakra
+import { Box, Flex, Heading, Image, Text } from '@chakra-ui/react';
 import logo from '../assets/logo.png';
 
-const HeaderContainer = styled.div`
-  display: flex;
-  align-items: center;
-  margin-bottom: 20px;
-`;
-
-const Logo = styled.img`
-  width: 40px;
-  height: 40px;
-  margin-right: 15px;
-`;
-
-const Title = styled.h1`
-  font-size: 20px;
-  font-weight: 600;
-  color: #24292e;
-  margin: 0;
-`;
-
-const Subtitle = styled.p`
-  font-size: 12px;
-  color: #586069;
-  margin: 5px 0 0 0;
-`;
+// 2. Não precisamos mais de 'styled-components'
+// import styled from 'styled-components';
 
 const Header = () => {
   return (
-    <HeaderContainer>
-      <Logo src={logo} alt="GitHub RAG Logo" />
-      <div>
-        <Title>GitHub RAG</Title>
-        <Subtitle>Análise e Rastreabilidade de Requisitos</Subtitle>
-      </div>
-    </HeaderContainer>
+    // 3. 'Flex' substitui 'HeaderContainer'
+    <Flex align="center" mb={5}> {/* mb={5} é "margin-bottom: 20px" */}
+      {/* 4. 'Image' substitui 'Logo' */}
+      <Image
+        src={logo}
+        alt="GitHub RAG Logo"
+        boxSize="40px" // Define width e height
+        mr={4} // 'margin-right: 16px'
+      />
+      
+      {/* 5. 'Box' é um container genérico (div) */}
+      <Box>
+        {/* 6. 'Heading' (h1) substitui 'Title' e herda a cor do tema */}
+        <Heading as="h1" size="md">
+          GitHub RAG
+        </Heading>
+        {/* 7. 'Text' substitui 'Subtitle' e usa uma cor de tema (para light/dark) */}
+        <Text fontSize="sm" color="gray.500">
+          Análise e Rastreabilidade de Requisitos
+        </Text>
+      </Box>
+    </Flex>
   );
 };
 

@@ -1,27 +1,15 @@
-// src/components/ConsultaForm.js (Refatorado)
+// src/components/ConsultaForm.js (Corrigido para Chakra UI v3)
 import React, { useState } from 'react';
-import styled from 'styled-components';
-// --- IMPORTA OS COMPONENTES PADRONIZADOS ---
-import { Button, Input, TextArea } from './StyledComponents';
-
-const FormContainer = styled.div`
-  margin-bottom: 20px;
-`;
-
-const FormGroup = styled.div`
-  margin-bottom: 15px;
-`;
-
-const Label = styled.label`
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 600;
-  font-size: 14px;
-  color: #24292e;
-`;
-
-// --- AS DEFINIÇÕES DE INPUT, TEXTAREA E BUTTON FORAM REMOVIDAS ---
-// (Agora estamos usando as globais)
+// 1. Importando os nomes CORRETOS (Field, FieldLabel)
+import {
+  Box,
+  Button,
+  Field, // <-- MUDANÇA: Era FormControl
+  FieldLabel, // <-- MUDANÇA: Era FormLabel
+  Input,
+  Textarea,
+  VStack
+} from '@chakra-ui/react';
 
 const ConsultaForm = ({ onSubmit, loading }) => {
   const [query, setQuery] = useState('');
@@ -29,11 +17,9 @@ const ConsultaForm = ({ onSubmit, loading }) => {
   
   const handleSubmit = (e) => {
     e.preventDefault();
-    
     if (!query.trim() || !repositorio.trim()) {
       return;
     }
-    
     onSubmit({
       query: query.trim(),
       repositorio: repositorio.trim(),
@@ -42,39 +28,42 @@ const ConsultaForm = ({ onSubmit, loading }) => {
   };
   
   return (
-    <FormContainer>
-      <form onSubmit={handleSubmit}>
-        <FormGroup>
-          <Label htmlFor="repositorio">Repositório GitHub:</Label>
-          <Input  /* <-- Usa o Input padronizado */
-            type="text"
+    <Box as="form" onSubmit={handleSubmit} width="100%">
+      <VStack spacing={4}>
+        
+        {/* 2. Usando 'Field' e 'FieldLabel' */}
+        <Field isRequired> {/* <-- MUDANÇA */}
+          <FieldLabel htmlFor="repositorio">Repositório GitHub:</FieldLabel> {/* <-- MUDANÇA */}
+          <Input
             id="repositorio"
             placeholder="usuario/repositorio"
             value={repositorio}
             onChange={(e) => setRepositorio(e.target.value)}
-            required
           />
-        </FormGroup>
+        </Field>
         
-        <FormGroup>
-          <Label htmlFor="query">Consulta:</Label>
-          <TextArea /* <-- Usa o TextArea padronizado */
+        <Field isRequired> {/* <-- MUDANÇA */}
+          <FieldLabel htmlFor="query">Consulta:</FieldLabel> {/* <-- MUDANÇA */}
+          <Textarea
             id="query"
             placeholder="Digite sua consulta em linguagem natural..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            required
           />
-        </FormGroup>
+        </Field>
         
-        <Button /* <-- Usa o Button padronizado (agora azul) */
-          type="submit" 
-          disabled={loading}
+        <Button
+          type="submit"
+          colorScheme="blue"
+          isLoading={loading}
+          loadingText="Consultando..."
+          width="100%"
         >
-          {loading ? 'Consultando...' : 'Consultar'}
+          Consultar
         </Button>
-      </form>
-    </FormContainer>
+        
+      </VStack>
+    </Box>
   );
 };
 

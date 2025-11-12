@@ -1,6 +1,19 @@
-// src/App.js (Versão com Barra de Progresso e Correção de Dark Mode)
+// src/App.js (Corrigido para Chakra UI v3 - Nomes Finais)
 import React, { useState, useEffect, useRef } from 'react';
-import styled from 'styled-components';
+import {
+  Box,
+  Tabs,
+  TabsList,       // <-- MUDANÇA (Era TabList)
+  TabsTrigger,    // <-- MUDANÇA (Era Tab)
+  TabsContentGroup, // <-- MUDANÇA (Era TabPanels)
+  TabsContent,      // <-- MUDANÇA (Era TabPanel)
+  Alert,
+  AlertIndicator, // <-- MUDANÇA (Era AlertIcon)
+  AlertTitle,
+  AlertDescription,
+  Progress,
+  VStack
+} from '@chakra-ui/react';
 import ConsultaForm from './components/ConsultaForm';
 import ResultadoConsulta from './components/ResultadoConsulta';
 import RelatorioForm from './components/RelatorioForm';
@@ -12,116 +25,9 @@ import {
     ingestarRepositorio, 
     getIngestStatus
 } from './services/api';
-import './App.css';
-
-// (Componentes Styled... AppContainer, Tabs, StatusIndicator... permanecem os mesmos)
-const AppContainer = styled.div`
-  width: 400px;
-  min-height: 500px;
-  max-height: 600px;
-  overflow-y: auto;
-  padding: 20px;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-`;
-
-const Tabs = styled.div`
-  display: flex;
-  margin-bottom: 20px;
-  border-bottom: 1px solid #e1e4e8;
-`;
-
-const Tab = styled.button`
-  padding: 10px 15px;
-  background: ${props => props.active ? '#0366d6' : 'transparent'};
-  color: ${props => props.active ? 'white' : '#586069'};
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 6px 6px 0 0;
-  
-  &:hover {
-    background: ${props => props.active ? '#0366d6' : '#f6f8fa'};
-  }
-  
-  &:disabled {
-    color: #999;
-    cursor: not-allowed;
-    background: #f6f8fa;
-  }
-`;
-
-const StatusIndicator = styled.div`
-  padding: 8px;
-  margin-bottom: 15px;
-  border-radius: 4px;
-  font-size: 12px;
-  background-color: ${props => props.connected ? '#e6ffed' : '#ffeef0'};
-  color: ${props => props.connected ? '#22863a' : '#cb2431'};
-  border: 1px solid ${props => props.connected ? '#34d058' : '#f97583'};
-`;
-
-// --- INÍCIO DA CORREÇÃO DE DARK MODE ---
-const Message = styled.div`
-  padding: 10px;
-  margin-top: 15px;
-  border-radius: 6px;
-  font-size: 14px;
-  
-  /* Light Mode (default) */
-  background-color: ${props => (props.type === 'error' ? '#ffeef0' : (props.type === 'info' ? '#f1f8ff' : '#e6ffed'))};
-  color: ${props => (props.type === 'error' ? '#cb2431' : (props.type === 'info' ? '#0366d6' : '#22863a'))};
-  border: 1px solid ${props => (props.type === 'error' ? '#f97583' : (props.type === 'info' ? '#0366d6' : '#34d058'))};
-
-  /* Correção para Dark Mode (baseado no seu StyledComponents.js) */
-  @media (prefers-color-scheme: dark) {
-    background-color: ${props => (props.type === 'error' ? 'rgba(248, 81, 73, 0.1)' : (props.type === 'info' ? 'rgba(88, 166, 255, 0.1)' : 'rgba(86, 211, 100, 0.1)'))};
-    color: ${props => (props.type === 'error' ? 'var(--error-color, #f85149)' : (props.type === 'info' ? 'var(--primary-color, #58a6ff)' : 'var(--success-color, #56d364)'))};
-    border: 1px solid ${props => (props.type === 'error' ? 'var(--error-color, #f85149)' : (props.type === 'info' ? 'var(--primary-color, #58a6ff)' : 'var(--success-color, #56d364)'))};
-  }
-`;
-// --- FIM DA CORREÇÃO DE DARK MODE ---
-
-
-// --- INÍCIO DA NOVA BARRA DE PROGRESSO ---
-const ProgressBarContainer = styled.div`
-  width: 100%;
-  height: 8px;
-  background-color: #e1e4e8; /* Fundo light mode */
-  border-radius: 4px;
-  overflow: hidden;
-  margin-top: 15px;
-
-  @media (prefers-color-scheme: dark) {
-    background-color: var(--border-color, #30363d); /* Fundo dark mode */
-  }
-`;
-
-const ProgressBar = styled.div`
-  width: 100%;
-  height: 100%;
-  background-color: var(--primary-color, #0366d6);
-  animation: indeterminate 2s linear infinite;
-  transform-origin: left;
-
-  /* Animação de "ida e volta" */
-  @keyframes indeterminate {
-    0% {
-      transform: translateX(-100%) scaleX(0.5);
-    }
-    50% {
-      transform: translateX(0%) scaleX(0.5);
-    }
-    100% {
-      transform: translateX(100%) scaleX(0.5);
-    }
-  }
-`;
-// --- FIM DA NOVA BARRA DE PROGRESSO ---
-
 
 function App() {
-  const [activeTab, setActiveTab] = useState('ingestao');
+  const [activeTab, setActiveTab] = useState('ingestao'); // v3 usa 'value'
   const [backendStatus, setBackendStatus] = useState(null);
   
   const [consultaResultado, setConsultaResultado] = useState(null);
@@ -131,11 +37,12 @@ function App() {
   const [ingestLoading, setIngestLoading] = useState(false);
   const [ingestError, setIngestError] = useState(null);
   const [ingestSuccess, setIngestSuccess] = useState(null);
-  const [ingestStatusText, setIngestStatusText] = useState(null); // Para o texto "Status: started..."
+  const [ingestStatusText, setIngestStatusText] = useState(null); 
   
   const [pollingJobId, setPollingJobId] = useState(null);
   const pollingInterval = useRef(null); 
 
+  // ... (Toda a lógica de useEffect e handlers permanece a mesma) ...
   useEffect(() => {
     const verificarConexao = async () => {
       try {
@@ -162,18 +69,16 @@ function App() {
           clearInterval(pollingInterval.current);
           setPollingJobId(null);
           setIngestLoading(false);
-          setIngestSuccess(statusData.result || "Ingestão concluída com sucesso!"); // Mensagem final de sucesso
-          setIngestStatusText(null); // Limpa o status
+          setIngestSuccess(statusData.result || "Ingestão concluída com sucesso!");
+          setIngestStatusText(null);
           setIngestError(null);
         } else if (statusData.status === 'failed') {
           clearInterval(pollingInterval.current);
           setPollingJobId(null);
           setIngestLoading(false);
           setIngestError(statusData.error || "A ingestão falhou no backend.");
-          setIngestStatusText(null); // Limpa o status
-          setIngestSuccess(null);
+          setIngestStatusText(null);
         } else {
-          // Atualiza o texto de status (queued ou started)
           setIngestStatusText(`Status: ${statusData.status}...`);
         }
       } catch (err) {
@@ -188,7 +93,6 @@ function App() {
   }, [pollingJobId]);
 
   const handleConsulta = async (dados) => {
-    // ... (lógica da consulta não mudou)
     setConsultaLoading(true);
     setConsultaError(null);
     setConsultaResultado(null);
@@ -206,12 +110,12 @@ function App() {
     setIngestLoading(true);
     setIngestError(null);
     setIngestSuccess(null);
-    setIngestStatusText(null); // Limpa status anterior
+    setIngestStatusText(null);
     
     try {
       const resposta = await ingestarRepositorio(dados);
-      setIngestStatusText(resposta.mensagem || 'Ingestão enfileirada...'); // Status inicial
-      setPollingJobId(resposta.job_id); // Dispara o polling
+      setIngestStatusText(resposta.mensagem || 'Ingestão enfileirada...');
+      setPollingJobId(resposta.job_id);
     } catch (erro) {
       console.error('Erro na ingestão:', erro);
       setIngestError('Erro ao iniciar ingestão.');
@@ -219,78 +123,85 @@ function App() {
     }
   };
 
+
   return (
-    <AppContainer>
+    <Box w="400px" minH="500px" maxH="600px" overflowY="auto" p={5}>
       <Header />
       
       {backendStatus !== null && (
-        <StatusIndicator connected={backendStatus}>
+        <Alert status={backendStatus ? 'success' : 'error'} mb={4} variant="subtle">
+          <AlertIndicator /> {/* <-- MUDANÇA */}
           {backendStatus 
-            ? '✅ Conectado ao backend' 
-            : '❌ Não foi possível conectar ao backend'}
-        </StatusIndicator>
+            ? 'Conectado ao backend' 
+            : 'Não foi possível conectar ao backend'}
+        </Alert>
       )}
       
-      <Tabs>
-        <Tab 
-          active={activeTab === 'ingestao'} 
-          onClick={() => setActiveTab('ingestao')}
-          disabled={ingestLoading}
-        >
-          Ingestão
-        </Tab>
-        <Tab 
-          active={activeTab === 'consulta'} 
-          onClick={() => setActiveTab('consulta')}
-          disabled={ingestLoading}
-        >
-          Consulta
-        </Tab>
-        <Tab 
-          active={activeTab === 'relatorio'} 
-          onClick={() => setActiveTab('relatorio')}
-          disabled={ingestLoading}
-        >
-          Relatório
-        </Tab>
+      {/* O componente 'Tabs' v3 usa 'value' e 'onValueChange' */}
+      <Tabs 
+        value={activeTab} 
+        onValueChange={(e) => setActiveTab(e.value)} // v3 passa um objeto
+        isLazy
+        variant="line"
+        colorScheme="blue"
+      >
+        <TabsList> {/* <-- MUDANÇA */}
+          <TabsTrigger value="ingestao" isDisabled={ingestLoading}>Ingestão</TabsTrigger> {/* <-- MUDANÇA */}
+          <TabsTrigger value="consulta" isDisabled={ingestLoading}>Consulta</TabsTrigger> {/* <-- MUDANÇA */}
+          <TabsTrigger value="relatorio" isDisabled={ingestLoading}>Relatório</TabsTrigger> {/* <-- MUDANÇA */}
+        </TabsList>
+        
+        <TabsContentGroup> {/* <-- MUDANÇA */}
+          {/* Painel de Ingestão */}
+          <TabsContent value="ingestao"> {/* <-- MUDANÇA */}
+            <IngestaoForm onSubmit={handleIngestao} loading={ingestLoading} />
+            <VStack spacing={3} mt={4}>
+              {ingestLoading && (
+                <>
+                  <Progress size="xs" isIndeterminate w="100%" />
+                  {ingestStatusText && (
+                    <Alert status="info" variant="subtle">
+                      <AlertIndicator /> {/* <-- MUDANÇA */}
+                      {ingestStatusText}
+                    </Alert>
+                  )}
+                </>
+              )}
+              {!ingestLoading && ingestSuccess && (
+                <Alert status="success" variant="subtle">
+                  <AlertIndicator /> {/* <-- MUDANÇA */}
+                  {ingestSuccess}
+                </Alert>
+              )}
+              {ingestError && (
+                <Alert status="error" variant="subtle">
+                  <AlertIndicator /> {/* <-- MUDANÇA */}
+                  {ingestError}
+                </Alert>
+              )}
+            </VStack>
+          </TabsContent>
+          
+          {/* Painel de Consulta */}
+          <TabsContent value="consulta"> {/* <-- MUDANÇA */}
+            <ConsultaForm onSubmit={handleConsulta} loading={consultaLoading} />
+            {consultaLoading && <Progress size="xs" isIndeterminate mt={4} />}
+            {consultaResultado && <ResultadoConsulta resultado={consultaResultado} />}
+            {consultaError && (
+              <Alert status="error" variant="subtle" mt={4}>
+                <AlertIndicator /> {/* <-- MUDANÇA */}
+                {consultaError}
+              </Alert>
+            )}
+          </TabsContent>
+          
+          {/* Painel de Relatório */}
+          <TabsContent value="relatorio"> {/* <-- MUDANÇA */}
+            <RelatorioForm />
+          </TabsContent>
+        </TabsContentGroup>
       </Tabs>
-      
-      {activeTab === 'ingestao' && (
-        <>
-          <IngestaoForm onSubmit={handleIngestao} loading={ingestLoading} />
-          
-          {/* --- RENDERIZAÇÃO DA BARRA E MENSAGENS --- */}
-          {ingestLoading && (
-            <>
-              {/* A nova Barra de Progresso */}
-              <ProgressBarContainer>
-                <ProgressBar />
-              </ProgressBarContainer>
-              {/* A mensagem de status (azul) */}
-              {ingestStatusText && <Message type="info">{ingestStatusText}</Message>}
-            </>
-          )}
-          
-          {/* Mensagem final de Sucesso (verde) */}
-          {!ingestLoading && ingestSuccess && <Message type="success">{ingestSuccess}</Message>}
-          
-          {/* Mensagem final de Erro (vermelha) */}
-          {ingestError && <Message type="error">{ingestError}</Message>}
-        </>
-      )}
-
-      {activeTab === 'consulta' && (
-        <>
-          <ConsultaForm onSubmit={handleConsulta} loading={consultaLoading} />
-          {consultaResultado && <ResultadoConsulta resultado={consultaResultado} />}
-          {consultaError && <Message type="error">{consultaError}</Message>}
-        </>
-      )}
-      
-      {activeTab === 'relatorio' && (
-        <RelatorioForm />
-      )}
-    </AppContainer>
+    </Box>
   );
 }
 
