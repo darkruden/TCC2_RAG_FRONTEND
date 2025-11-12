@@ -1,26 +1,27 @@
-// src/components/Header.js (Corrigido para Chakra UI v3)
+// src/components/Header.js (MUI)
 import React from 'react';
-import { Box, Flex, Heading, Image, Text } from '@chakra-ui/react';
-import logo from '../assets/logo.png';
+import { Box, Typography } from '@mui/material';
+import logo from '../assets/logo.png'; // Caminho para o logo permanece
 
 const Header = () => {
   return (
-    <Flex align="center" mb={5}>
-      <Image
+    // 'Box' é o 'div' principal do MUI. 'sx' é como estilizamos.
+    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2.5 }}> {/* mb: 2.5 é 20px */}
+      <Box
+        component="img"
         src={logo}
         alt="GitHub RAG Logo"
-        boxSize="40px"
-        mr={4}
+        sx={{ width: 40, height: 40, mr: 2 }} // mr: 2 é 16px
       />
       <Box>
-        <Heading as="h1" size="md">
+        <Typography variant="h6" component="h1">
           GitHub RAG
-        </Heading>
-        <Text fontSize="sm" color="gray.500">
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
           Análise e Rastreabilidade de Requisitos
-        </Text>
+        </Typography>
       </Box>
-    </Flex>
+    </Box>
   );
 };
 

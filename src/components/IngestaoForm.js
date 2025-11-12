@@ -1,16 +1,8 @@
-// src/components/IngestaoForm.js (Corrigido para Chakra UI v3)
+// src/components/IngestaoForm.js (MUI)
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  Field,
-  FieldLabel,
-  Input,
-  NumberInput,
-  NumberInputInput,   // V3
-  HStack,
-  VStack
-} from '@chakra-ui/react';
+import { Stack, TextField, Typography } from '@mui/material';
+import { LoadingButton } from '@mui/lab';
+// A importação do 'api.js' permanece
 import { extrairInfoRepositorio } from '../services/api';
 
 const IngestaoForm = ({ onSubmit, loading }) => {
@@ -19,15 +11,14 @@ const IngestaoForm = ({ onSubmit, loading }) => {
   const [prsLimit, setPrsLimit] = useState(20);
   const [commitsLimit, setCommitsLimit] = useState(30);
 
+  // ... (A lógica de useEffect permanece a mesma) ...
   useEffect(() => {
     if (window.chrome && chrome.tabs) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0] && tabs[0].url) {
           const url = tabs[0].url;
           const m = url.match(/github\.com\/([^\/]+\/[^\/]+)/);
-          if (m && m[1]) {
-            setRepositorio(m[1]);
-          }
+          if (m && m[1]) setRepositorio(m[1]);
         }
       });
     } else {
@@ -47,57 +38,61 @@ const IngestaoForm = ({ onSubmit, loading }) => {
   };
   
   return (
-    <Box as="form" onSubmit={handleSubmit} width="100%">
-      <VStack spacing={4}>
+    <Stack as="form" onSubmit={handleSubmit} spacing={2} width="100%">
+      
+      <TextField
+        label="Repositório GitHub"
+        id="repositorio-ingest"
+        placeholder="usuario/repositorio"
+        value={repositorio}
+        onChange={(e) => setRepositorio(e.target.value)}
+        required
+        fullWidth
+        variant="outlined"
+      />
         
-        <Field isRequired>
-          <FieldLabel htmlFor="repositorio-ingest">Repositório GitHub:</FieldLabel>
-          <Input
-            id="repositorio-ingest"
-            placeholder="usuario/repositorio"
-            value={repositorio}
-            onChange={(e) => setRepositorio(e.target.value)}
+      <Stack spacing={1}>
+        <Typography variant="caption" color="text.secondary" sx={{ml: 0.5}}>
+          Limites de Ingestão (Opcional):
+        </Typography>
+        {/* Stack horizontal para os inputs de número */}
+        <Stack direction="row" spacing={1.5}>
+          <TextField
+            label="Issues"
+            type="number"
+            value={issuesLimit}
+            onChange={(e) => setIssuesLimit(e.target.value)}
+            variant="outlined"
+            size="small"
           />
-        </Field>
+          <TextField
+            label="PRs"
+            type="number"
+            value={prsLimit}
+            onChange={(e) => setPrsLimit(e.target.value)}
+            variant="outlined"
+            size="small"
+          />
+          <TextField
+            label="Commits"
+            type="number"
+            value={commitsLimit}
+            onChange={(e) => setCommitsLimit(e.target.value)}
+            variant="outlined"
+            size="small"
+          />
+        </Stack>
+      </Stack>
         
-        <Field>
-          <FieldLabel>Limites de Ingestão (Opcional):</FieldLabel>
-          <HStack spacing={2}>
-            <NumberInput
-              value={issuesLimit}
-              onValueChange={(e) => setIssuesLimit(e.value)} // V3
-              min={0}
-            >
-              <NumberInputInput title="Issues" />
-            </NumberInput>
-            <NumberInput
-              value={prsLimit}
-              onValueChange={(e) => setPrsLimit(e.value)} // V3
-              min={0}
-            >
-              <NumberInputInput title="Pull Requests" />
-            </NumberInput>
-            <NumberInput
-              value={commitsLimit}
-              onValueChange={(e) => setCommitsLimit(e.value)} // V3
-              min={0}
-            >
-              <NumberInputInput title="Commits" />
-            </NumberInput>
-          </HStack>
-        </Field>
-        
-        <Button
-          type="submit"
-          colorScheme="blue"
-          isLoading={loading}
-          loadingText="Ingerindo..."
-          width="100%"
-        >
-          Iniciar Ingestão
-        </Button>
-      </VStack>
-    </Box>
+      <LoadingButton
+        type="submit"
+        loading={loading}
+        variant="contained"
+        fullWidth
+      >
+        <span>Iniciar Ingestão</span>
+      </LoadingButton>
+    </Stack>
   );
 };
 

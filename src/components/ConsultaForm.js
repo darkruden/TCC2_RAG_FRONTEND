@@ -1,15 +1,7 @@
-// src/components/ConsultaForm.js (Corrigido para Chakra UI v3)
+// src/components/ConsultaForm.js (MUI)
 import React, { useState } from 'react';
-import {
-  Box,
-  Button,
-  Field,        // V3
-  FieldLabel,   // V3
-  Input,
-  Textarea,
-  VStack
-} from '@chakra-ui/react';
-// NENHUMA outra importação aqui
+import { Stack, TextField } from '@mui/material';
+import { LoadingButton } from '@mui/lab'; // Botão com loading
 
 const ConsultaForm = ({ onSubmit, loading }) => {
   const [query, setQuery] = useState('');
@@ -17,9 +9,7 @@ const ConsultaForm = ({ onSubmit, loading }) => {
   
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!query.trim() || !repositorio.trim()) {
-      return;
-    }
+    if (!query.trim() || !repositorio.trim()) return;
     onSubmit({
       query: query.trim(),
       repositorio: repositorio.trim(),
@@ -28,40 +18,44 @@ const ConsultaForm = ({ onSubmit, loading }) => {
   };
   
   return (
-    <Box as="form" onSubmit={handleSubmit} width="100%">
-      <VStack spacing={4}>
-        
-        <Field isRequired>
-          <FieldLabel htmlFor="repositorio">Repositório GitHub:</FieldLabel>
-          <Input
-            id="repositorio"
-            placeholder="usuario/repositorio"
-            value={repositorio}
-            onChange={(e) => setRepositorio(e.target.value)}
-          />
-        </Field>
-        
-        <Field isRequired>
-          <FieldLabel htmlFor="query">Consulta:</FieldLabel>
-          <Textarea
-            id="query"
-            placeholder="Digite sua consulta em linguagem natural..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </Field>
-        
-        <Button
-          type="submit"
-          colorScheme="blue"
-          isLoading={loading}
-          loadingText="Consultando..."
-          width="100%"
-        >
-          Consultar
-        </Button>
-      </VStack>
-    </Box>
+    // 'Stack' (vertical por padrão) substitui o form e 'VStack'
+    <Stack as="form" onSubmit={handleSubmit} spacing={2} width="100%">
+      
+      {/* 'TextField' substitui FormControl, FormLabel, e Input */}
+      <TextField
+        label="Repositório GitHub"
+        id="repositorio"
+        placeholder="usuario/repositorio"
+        value={repositorio}
+        onChange={(e) => setRepositorio(e.target.value)}
+        required
+        fullWidth
+        variant="outlined" // Garante a borda e o contraste
+      />
+      
+      <TextField
+        label="Consulta"
+        id="query"
+        placeholder="Digite sua consulta em linguagem natural..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        required
+        fullWidth
+        multiline // Transforma em <textarea>
+        rows={4}
+        variant="outlined"
+      />
+      
+      <LoadingButton
+        type="submit"
+        loading={loading}
+        variant="contained" // Botão principal (com fundo)
+        fullWidth
+      >
+        <span>Consultar</span>
+      </LoadingButton>
+      
+    </Stack>
   );
 };
 

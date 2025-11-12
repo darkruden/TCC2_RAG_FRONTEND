@@ -1,17 +1,12 @@
-// src/App.js (Corrigido para Chakra UI v3)
+// src/App.js (MUI - Corrigido com os typos)
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Box,
-  Tabs,
-  TabsList,           // V3
-  TabsTrigger,        // V3
-  TabsContentGroup,   // V3
-  TabsContent,        // V3
-  Alert,
-  AlertIndicator,     // V3
-  Progress,
-  VStack
-} from '@chakra-ui/react';
+// Importações de layout do MUI
+import { 
+  Container, Box, Tabs, Tab, Alert, AlertTitle, LinearProgress, Stack 
+} from '@mui/material';
+// Importações do 'lab' para componentes mais complexos
+import { TabContext, TabList, TabPanel } from '@mui/lab';
+// Importações dos seus componentes
 import ConsultaForm from './components/ConsultaForm';
 import ResultadoConsulta from './components/ResultadoConsulta';
 import RelatorioForm from './components/RelatorioForm';
@@ -25,7 +20,7 @@ import {
 } from './services/api';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('ingestao'); // V3 usa 'value'
+  const [activeTab, setActiveTab] = useState('ingestao'); // MUI Tabs usam 'value'
   const [backendStatus, setBackendStatus] = useState(null);
   
   const [consultaResultado, setConsultaResultado] = useState(null);
@@ -87,7 +82,7 @@ function App() {
     return () => clearInterval(pollingInterval.current);
   }, [pollingJobId]);
 
-  const handleConsulta = async (dados) => {
+  const handleConsulta = async (dados) => { /* ... (lógica igual) ... */ 
     setConsultaLoading(true);
     setConsultaError(null);
     setConsultaResultado(null);
@@ -100,8 +95,7 @@ function App() {
       setConsultaLoading(false);
     }
   };
-
-  const handleIngestao = async (dados) => {
+  const handleIngestao = async (dados) => { /* ... (lógica igual) ... */ 
     setIngestLoading(true);
     setIngestError(null);
     setIngestSuccess(null);
@@ -117,80 +111,74 @@ function App() {
     }
   };
 
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
   return (
-    <Box w="400px" minH="500px" maxH="600px" overflowY="auto" p={5}>
+    // 'Container' centraliza e define a largura. 'disableGutters' remove padding.
+    <Container maxWidth="xs" disableGutters sx={{ minHeight: '500px', maxHeight: '600px', overflowY: 'auto', p: 2.5 }}>
       <Header />
       
       {backendStatus !== null && (
-        <Alert status={backendStatus ? 'success' : 'error'} mb={4} variant="subtle">
-          <AlertIndicator />
-          {backendStatus 
-            ? 'Conectado ao backend' 
-            : 'Não foi possível conectar ao backend'}
+        <Alert severity={backendStatus ? 'success' : 'error'} sx={{ mb: 2 }}>
+          {backendStatus ? 'Conectado ao backend' : 'Não foi possível conectar ao backend'}
         </Alert>
       )}
       
-      <Tabs 
-        value={activeTab} 
-        onValueChange={(e) => setActiveTab(e.value)} // V3
-        isLazy
-        variant="line"
-        colorScheme="blue"
-      >
-        <TabsList>
-          <TabsTrigger value="ingestao" isDisabled={ingestLoading}>Ingestão</TabsTrigger>
-          <TabsTrigger value="consulta" isDisabled={ingestLoading}>Consulta</TabsTrigger>
-          <TabsTrigger value="relatorio" isDisabled={ingestLoading}>Relatório</TabsTrigger>
-        </TabsList>
+      {/* 'TabContext' gerencia o estado das abas */}
+      <TabContext value={activeTab}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <TabList 
+            onChange={handleTabChange} 
+            aria-label="Abas principais"
+            variant="fullWidth" // Abas ocupam espaço total
+          >
+            <Tab label="Ingestão" value="ingestao" disabled={ingestLoading} />
+            <Tab label="Consulta" value="consulta" disabled={ingestLoading} />
+            <Tab label="Relatório" value="relatorio" disabled={ingestLoading} />
+          </TabList>
+        </Box>
         
-        <TabsContentGroup>
-          <TabsContent value="ingestao">
-            <IngestaoForm onSubmit={handleIngestao} loading={ingestLoading} />
-            <VStack spacing={3} mt={4}>
-              {ingestLoading && (
-                <>
-                  <Progress size="xs" isIndeterminate w="100%" />
-                  {ingestStatusText && (
-                    <Alert status="info" variant="subtle">
-                      <AlertIndicator />
-                      {ingestStatusText}
-                    </Alert>
-                  )}
-                </>
-              )}
-              {!ingestLoading && ingestSuccess && (
-                <Alert status="success" variant="subtle">
-                  <AlertIndicator />
-                  {ingestSuccess}
-                </Alert>
-              )}
-              {ingestError && (
-                <Alert status="error" variant="subtle">
-                  <AlertIndicator />
-                  {ingestError}
-                </Alert>
-              )}
-            </VStack>
-          </TabsContent>
-          
-          <TabsContent value="consulta">
-            <ConsultaForm onSubmit={handleConsulta} loading={consultaLoading} />
-            {consultaLoading && <Progress size="xs" isIndeterminate mt={4} />}
-            {consultaResultado && <ResultadoConsulta resultado={consultaResultado} />}
-            {consultaError && (
-              <Alert status="error" variant="subtle" mt={4}>
-                <AlertIndicator />
-                {consultaError}
-              </Alert>
+        {/* 'TabPanel' remove o padding padrão com sx={{ p: 0 }} */}
+        <TabPanel value="ingestao" sx={{ p: 0, pt: 2 }}>
+          <IngestaoForm onSubmit={handleIngestao} loading={ingestLoading} />
+          {/* 'Stack' é o VStack/HStack do MUI */}
+          <Stack spacing={1.5} sx={{ mt: 2 }}>
+            {ingestLoading && (
+              <>
+                <LinearProgress /> {/* Barra de progresso */}
+                {ingestStatusText && (
+                  <Alert severity="info">{ingestStatusText}</Alert>
+                )}
+              </>
             )}
-          </TabsContent>
-          
-          <TabsContent value="relatorio">
-            <RelatorioForm />
-          </TabsContent>
-        </TabsContentGroup>
-      </Tabs>
-    </Box>
+            {!ingestLoading && ingestSuccess && (
+              <Alert severity="success">{ingestSuccess}</Alert>
+            )}
+            {ingestError && (
+              <Alert severity="error">{ingestError}</Alert>
+            )}
+          </Stack>
+        </TabPanel>
+        
+        <TabPanel value="consulta" sx={{ p: 0, pt: 2 }}>
+          <ConsultaForm onSubmit={handleConsulta} loading={consultaLoading} />
+          {consultaLoading && <LinearProgress sx={{ mt: 2 }} />}
+          {consultaResultado && <ResultadoConsulta resultado={consultaResultado} />}
+          {consultaError && (
+            <Alert severity="error" sx={{ mt: 2 }}>{consultaError}</Alert>
+          )}
+        </TabPanel>
+        
+        <TabPanel value="relatorio" sx={{ p: 0, pt: 2 }}>
+          <RelatorioForm />
+        </TabPanel>
+      </TabContext> 
+      {/* CORREÇÃO 1: Removido o '>>' daqui (era linha 174)
+        CORREÇÃO 2: A tag de fechamento agora é </Container> (era </Box>)
+      */}
+    </Container> 
   );
 }
 

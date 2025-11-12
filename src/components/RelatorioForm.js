@@ -1,14 +1,15 @@
-// src/components/RelatorioForm.js (Corrigido para Chakra UI v3)
+// src/components/RelatorioForm.js (MUI - Correção Final de Importação)
 import React, { useState } from 'react';
-import {
-  Box,
-  Button,
+import { 
+  Stack, 
+  FormControl, 
+  InputLabel, 
+  Select, 
+  MenuItem, 
   ButtonGroup,
-  Field,
-  FieldLabel,
-  Select,
-  VStack
-} from '@chakra-ui/react';
+  Button // <-- AQUI ESTÁ A CORREÇÃO
+} from '@mui/material';
+import { LoadingButton } from '@mui/lab';
 
 const RelatorioForm = () => {
   const [loading, setLoading] = useState(false);
@@ -18,9 +19,7 @@ const RelatorioForm = () => {
     e.preventDefault();
     setLoading(true);
     console.log(`Gerando relatório em formato ${formato}...`);
-    setTimeout(() => {
-      setLoading(false);
-    }, 2000);
+    setTimeout(() => { setLoading(false); }, 2000);
   };
 
   const handleDownload = () => {
@@ -28,43 +27,44 @@ const RelatorioForm = () => {
   };
 
   return (
-    <Box as="form" onSubmit={handleGerarRelatorio} width="100%">
-      <VStack spacing={4}>
-        
-        <Field>
-          <FieldLabel htmlFor="formato-relatorio">Formato:</FieldLabel>
-          <Select
-            id="formato-relatorio"
-            value={formato}
-            onChange={(e) => setFormato(e.target.value)}
-          >
-            <option value="markdown">Markdown (.md)</option>
-            <option value="pdf">PDF (.pdf)</option>
-          </Select>
-        </Field>
+    <Stack as="form" onSubmit={handleGerarRelatorio} spacing={2} width="100%">
+      
+      <FormControl fullWidth variant="outlined">
+        <InputLabel id="formato-relatorio-label">Formato</InputLabel>
+        <Select
+          labelId="formato-relatorio-label"
+          id="formato-relatorio"
+          value={formato}
+          onChange={(e) => setFormato(e.target.value)}
+          label="Formato"
+        >
+          <MenuItem value="markdown">Markdown (.md)</MenuItem>
+          <MenuItem value="pdf">PDF (.pdf)</MenuItem>
+        </Select>
+      </FormControl>
 
-        <ButtonGroup spacing={2} width="100%">
-          <Button
-            type="submit"
-            colorScheme="blue"
-            isLoading={loading}
-            loadingText="Gerando..."
-            width="100%"
-          >
-            Gerar Relatório
-          </Button>
-          <Button
-            type="button"
-            onClick={handleDownload}
-            disabled={loading}
-            width="100%"
-            variant="outline"
-          >
-            Download
-          </Button>
-        </ButtonGroup>
-      </VStack>
-    </Box>
+      <ButtonGroup fullWidth>
+        <LoadingButton
+          type="submit"
+          loading={loading}
+          variant="contained"
+          fullWidth
+        >
+          <span>Gerar Relatório</span>
+        </LoadingButton>
+        
+        {/* Este é o botão que estava causando o erro */}
+        <Button
+          type="button"
+          onClick={handleDownload}
+          disabled={loading}
+          variant="outlined"
+          fullWidth
+        >
+          Download
+        </Button>
+      </ButtonGroup>
+    </Stack>
   );
 };
 
