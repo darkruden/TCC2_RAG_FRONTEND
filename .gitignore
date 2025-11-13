@@ -1,1 +1,27 @@
-node_modules
+# Dependências
+# (Você já tem isso, o que está correto)
+node_modules/
+
+# Pasta de Build (CRÍTICO)
+# Esta pasta é gerada pelo 'npm run build'. Nunca deve ir para o Git.
+build/
+
+# Arquivos de Ambiente (O MAIS CRÍTICO)
+# Contém seus segredos, como o API_TOKEN.
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Arquivos de Sistema Operacional
+# (macOS)
+.DS_Store
+
+# (Windows - Relevante para você no Windows 11)
+Thumbs.db
