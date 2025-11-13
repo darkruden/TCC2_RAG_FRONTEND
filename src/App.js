@@ -47,46 +47,17 @@ function App() {
     verificarConexao();
   }, []);
 
-  // ... (useEffect de polling permanece igual - ele vai funcionar automaticamente
-  //      quando o 'pollingJobId' for carregado do storage) ...
-  useEffect(() => {
-    if (!pollingJobId) {
-      if (pollingInterval.current) clearInterval(pollingInterval.current);
-      return;
-    }
-    pollingInterval.current = setInterval(async () => {
-      try {
-        const statusData = await getIngestStatus(pollingJobId);
-        if (statusData.status === 'finished') {
-          clearInterval(pollingInterval.current);
-          setPollingJobId(null);
-          setIngestLoading(false);
-          setIngestSuccess(statusData.result || "Ingestão concluída com sucesso!");
-          setIngestStatusText(null);
-          setIngestError(null);
-        } else if (statusData.status === 'failed') {
-          clearInterval(pollingInterval.current);
-          setPollingJobId(null);
-          setIngestLoading(false);
-          setIngestError(statusData.error || "A ingestão falhou no backend.");
-          setIngestStatusText(null);
-        } else {
-          setIngestStatusText(`Status: ${statusData.status}...`);
-        }
-      } catch (err) {
-        clearInterval(pollingInterval.current);
-        setPollingJobId(null);
-        setIngestLoading(false);
-        setIngestError("Erro ao verificar status da ingestão.");
-      }
-    }, 3000);
-    return () => clearInterval(pollingInterval.current);
-  }, [pollingJobId]);
+  
 
 
   // --- MUDANÇA: useEffect de CARREGAR estado (agora inclui ingestão) ---
   useEffect(() => {
     if (window.chrome && window.chrome.storage) {
+
+      if (chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ action: 'popupAbertoResetarBadge' });
+      }
+
       chrome.storage.local.get([
         // Chaves da Consulta
         'repositorioConsulta', 'query', 'consultaResultado',
@@ -104,6 +75,11 @@ function App() {
         if (result.ingestSuccess) setIngestSuccess(result.ingestSuccess);
         if (result.ingestStatusText) setIngestStatusText(result.ingestStatusText);
         if (result.pollingJobId) setPollingJobId(result.pollingJobId); // <-- Isso reinicia o polling!
+        // Limpa as mensagens de status do storage após serem carregadas na UI.
+        // Isso garante que o Alert de "sucesso" ou "erro" só apareça uma vez.
+        if (result.ingestSuccess || result.ingestError) {
+          chrome.storage.local.remove(['ingestSuccess', 'ingestError', 'ingestStatusText']);
+        }
       });
     }
   }, []); // Só roda na abertura
@@ -158,6 +134,13 @@ function App() {
       const resposta = await ingestarRepositorio(dados);
       setIngestStatusText(resposta.mensagem || 'Ingestão enfileirada...');
       setPollingJobId(resposta.job_id); // Isso salva o Job ID no storage (via useEffect)
+      
+      if (window.chrome && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ 
+          action: 'iniciarPolling', 
+          jobId: resposta.job_id 
+        });
+      }
     } catch (erro) {
       console.error('Erro na ingestão:', erro);
       setIngestError('Erro ao iniciar ingestão.');

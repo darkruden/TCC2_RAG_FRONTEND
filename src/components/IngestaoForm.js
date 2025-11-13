@@ -27,15 +27,21 @@ const IngestaoForm = ({ onSubmit, loading }) => {
   }, []);
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!repositorio.trim()) return;
-    onSubmit({
-      repositorio: repositorio.trim(),
-      issues_limit: parseInt(issuesLimit, 10) || 50,
-      prs_limit: parseInt(prsLimit, 10) || 20,
-      commits_limit: parseInt(commitsLimit, 10) || 30
-    });
-  };
+        e.preventDefault();
+        if (!repositorio.trim()) return;
+    
+        // 1. Organiza os dados em uma variável (opcional, mas mais limpo)
+        const dadosIngestao = {
+          repositorio: repositorio.trim(),
+          issues_limit: parseInt(issuesLimit, 10) || 50,
+          prs_limit: parseInt(prsLimit, 10) || 20,
+          commits_limit: parseInt(commitsLimit, 10) || 30
+        };
+    if (window.chrome && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ action: 'ingestaoIniciada' });
+    }
+    onSubmit(dadosIngestao); 
+  };
   
   return (
     <Stack as="form" onSubmit={handleSubmit} spacing={2} width="100%">

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "GitHub RAG - Análise de Requisitos",
+  "name": "GitRAG",
   "version": "1.0.0",
   "description": "Extensão para análise e rastreabilidade de requisitos de software usando RAG",
   "permissions": [
@@ -9,7 +9,8 @@
     "scripting"
   ],
   "host_permissions": [
-    "https://github.com/*"
+    "https://github.com/*",
+    "https://protected-ridge-40630-cca6313c2003.herokuapp.com/*"
   ],
   "action": {
     "default_popup": "index.html",

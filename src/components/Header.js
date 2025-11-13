@@ -15,10 +15,9 @@ const Header = () => {
       />
       <Box>
         <Typography variant="h6" component="h1">
-          GitHub RAG
+          GitRAG
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Análise e Rastreabilidade de Requisitos
         </Typography>
       </Box>
     </Box>
