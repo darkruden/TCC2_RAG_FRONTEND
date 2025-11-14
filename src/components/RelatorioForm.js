@@ -1,69 +1,80 @@
-// src/components/RelatorioForm.js (MUI - Correção Final de Importação)
+// src/components/RelatorioForm.js (MUI - Controlado por App.js)
 import React, { useState } from 'react';
 import { 
   Stack, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem, 
-  ButtonGroup,
-  Button // <-- AQUI ESTÁ A CORREÇÃO
+  TextField,
+  Typography,
+  Alert
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
+// NÃO PRECISAMOS MAIS DA 'api.js' AQUI
 
-const RelatorioForm = () => {
-  const [loading, setLoading] = useState(false);
-  const [formato, setFormato] = useState('markdown');
+// 1. Recebe 'onSubmit' e 'loading' do App.js
+const RelatorioForm = ({ repositorio, onSubmit, loading }) => {
+  const [error, setError] = useState('');
+  
+  // 2. O estado do prompt permanece local, o que é bom
+  const [prompt, setPrompt] = useState('Faça uma análise de quem mais contribuiu com commits neste repositório e gere um gráfico de barras.');
 
-  const handleGerarRelatorio = (e) => {
+  const handleGerarRelatorio = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    console.log(`Gerando relatório em formato ${formato}...`);
-    setTimeout(() => { setLoading(false); }, 2000);
-  };
-
-  const handleDownload = () => {
-    console.log("Iniciando download...");
+    if (!prompt.trim() || !repositorio.trim()) {
+      setError('Repositório (na aba Consulta) e Prompt são obrigatórios.');
+      return;
+    }
+    
+    setError('');
+    
+    // 3. Chama a função 'onSubmit' do App.js, passando os dados
+    onSubmit({
+      repositorio: repositorio,
+      prompt: prompt
+    });
   };
 
   return (
     <Stack as="form" onSubmit={handleGerarRelatorio} spacing={2} width="100%">
       
-      <FormControl fullWidth variant="outlined">
-        <InputLabel id="formato-relatorio-label">Formato</InputLabel>
-        <Select
-          labelId="formato-relatorio-label"
-          id="formato-relatorio"
-          value={formato}
-          onChange={(e) => setFormato(e.target.value)}
-          label="Formato"
-        >
-          <MenuItem value="markdown">Markdown (.md)</MenuItem>
-          <MenuItem value="pdf">PDF (.pdf)</MenuItem>
-        </Select>
-      </FormControl>
+      <TextField
+        label="Repositório para Análise"
+        value={repositorio}
+        disabled
+        fullWidth
+        variant="outlined"
+        // Mostra um helper se estiver vazio
+        helperText={!repositorio ? "Defina o repositório na aba 'Consulta'" : ""}
+      />
 
-      <ButtonGroup fullWidth>
-        <LoadingButton
-          type="submit"
-          loading={loading}
-          variant="contained"
-          fullWidth
-        >
-          <span>Gerar Relatório</span>
-        </LoadingButton>
-        
-        {/* Este é o botão que estava causando o erro */}
-        <Button
-          type="button"
-          onClick={handleDownload}
-          disabled={loading}
-          variant="outlined"
-          fullWidth
-        >
-          Download
-        </Button>
-      </ButtonGroup>
+      <TextField
+        label="Prompt do Relatório"
+        id="prompt"
+        placeholder="Ex: quem está produzindo mais? qual integrante precisa de atenção?"
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        required
+        fullWidth
+        multiline
+        rows={4}
+        variant="outlined"
+        disabled={loading} // Controlado pelo App.js
+      />
+      
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+        O relatório será gerado em segundo plano e aberto numa nova aba.
+      </Typography>
+
+      <LoadingButton
+        type="submit"
+        loading={loading} // Controlado pelo App.js
+        variant="contained"
+        fullWidth
+      >
+        <span>Gerar Relatório Analítico</span>
+      </LoadingButton>
+      
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
+      )}
     </Stack>
   );
 };
