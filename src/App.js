@@ -156,9 +156,9 @@ function App() {
             setReportStatusText(`Relatório pronto: ${data.result.filename}`);
             
             // ABRE O ARQUIVO HTML QUE A API GEROU
-            // (Isto é o que a api.js fazia, mas é melhor fazer aqui)
-            const { apiUrl } = await getConfig(); // Precisamos de getConfig aqui
-            const urlCompleta = apiUrl + data.result.url;
+            const { apiUrl } = await getConfig(); 
+            // Nós precisamos de construir o caminho /reports/ manualmente
+            const urlCompleta = apiUrl + "/reports/" + data.result.filename; 
             window.open(urlCompleta, '_blank');
             
           } else {
