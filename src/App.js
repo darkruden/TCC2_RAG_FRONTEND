@@ -149,36 +149,33 @@ function App() {
           setPollingReportJobId(null);
           clearInterval(reportPollingInterval.current);
           
-          // O 'result' ainda é a URL completa do Supabase
           if (typeof data.result === 'string' && data.result.startsWith('http')) {
             
             const reportUrl = data.result; 
             
             setReportSuccess({ url: reportUrl });
-            setReportStatusText(`Relatório pronto. Baixando...`);
+            // Atualiza o status para mostrar a URL (para facilitar o debug)
+            setReportStatusText(`Relatório pronto. Teste a URL:`);
             
-            // --- INÍCIO DA MUDANÇA (Trigger Download) ---
+            // --- INÍCIO DA MUDANÇA (DEBUG) ---
             
-            // 1. Criar um link <a> invisível
+            // 1. Loga a URL no console (o mais importante)
+            //    (No console, você poderá clicar nela)
+            console.log("URL DO RELATÓRIO (TESTE MANUAL):", reportUrl);
+
+            // 2. Comenta a lógica de download automático
+            /*
             const link = document.createElement('a');
             link.href = reportUrl;
-            
-            // 2. Adicionar o atributo 'download' (o backend já força, mas isso ajuda)
             link.setAttribute('download', 'relatorio.html'); 
-            
-            // 3. Adicionar o link ao corpo e "clicá-lo"
             document.body.appendChild(link);
             link.click();
-            
-            // 4. Limpar o link
             document.body.removeChild(link);
-
-            // window.open(reportUrl, '_blank'); // <-- LINHA REMOVIDA
+            */
             
             // --- FIM DA MUDANÇA ---
             
           } else {
-            // O worker retornou uma string de erro
             setReportError(data.result || 'Falha ao gerar relatório (resultado inesperado).');
           }
           
