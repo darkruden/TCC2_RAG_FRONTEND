@@ -29,6 +29,7 @@
 ./src/theme.js
 ./src/utils
 ./structure.txt
+./structureFronted.txt
 ./tests
 ./tests/App.test.js
 ./tests/ConsultaForm.test.js
