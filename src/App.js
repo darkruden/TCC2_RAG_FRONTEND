@@ -151,19 +151,20 @@ function App() {
           
           // O 'result' é um dicionário { format: 'html', filepath: '...', filename: '...' }
           // ou uma string de erro
-          if (typeof data.result === 'object' && data.result.filename) {
-            setReportSuccess(data.result); // Salva o objeto de resultado
-            setReportStatusText(`Relatório pronto: ${data.result.filename}`);
+          if (typeof data.result === 'string' && data.result.startsWith('http')) {
             
-            // ABRE O ARQUIVO HTML QUE A API GEROU
-            const { apiUrl } = await getConfig(); 
-            // Nós precisamos de construir o caminho /reports/ manualmente
-            const urlCompleta = apiUrl + "/reports/" + data.result.filename; 
-            window.open(urlCompleta, '_blank');
+            const reportUrl = data.result; // O resultado JÁ É a URL
+            
+            setReportSuccess({ url: reportUrl }); // Salva a URL no estado
+            setReportStatusText(`Relatório pronto. Abrindo...`);
+            
+            // ABRE A URL PÚBLICA DO SUPABASE DIRETAMENTE
+            window.open(reportUrl, '_blank');
             
           } else {
-            // O worker retornou uma string de erro
-            setReportError(data.result || 'Falha ao gerar relatório.');
+            // O worker retornou uma string de erro (ex: "Erro ao fazer upload")
+            // ou um resultado inesperado.
+            setReportError(data.result || 'Falha ao gerar relatório (resultado inesperado).');
           }
           
         } else if (data.status === 'failed') {
