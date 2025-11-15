@@ -1,20 +1,23 @@
 // CÓDIGO COMPLETO PARA: src/services/api.js
-// (Adicionada a função 'enviarMensagemComArquivo')
+// (Atualizado para apontar para o app de testes do Heroku)
 
 import axios from 'axios';
 
-// --- FUNÇÃO HELPER DE CONFIGURAÇÃO (NÃO MUDA) ---
+// --- FUNÇÃO HELPER DE CONFIGURAÇÃO (ATUALIZADA) ---
 export async function getConfig() {
   if (window.chrome && window.chrome.storage) {
     const { apiUrl, apiToken } = await chrome.storage.local.get(['apiUrl', 'apiToken']);
     return {
-      apiUrl: apiUrl || [cite_start]'https://protected-ridge-40630-cca6313c2003.herokuapp.com', [cite: 7]
-      apiToken: apiToken || [cite_start]'testebrabotoken' [cite: 7]
+      // --- MUDANÇA AQUI ---
+      apiUrl: apiUrl || 'https://meu-tcc-testes-041c1dd46d1d.herokuapp.com',
+      apiToken: apiToken || 'testebrabotoken' // (Mantém o mesmo token de fallback)
     };
   } else {
+    // Fallback para dev local
     return {
-      [cite_start]apiUrl: 'https://protected-ridge-40630-cca6313c2003.herokuapp.com', [cite: 7]
-      [cite_start]apiToken: 'testebrabotoken' [cite: 7]
+      // --- E MUDANÇA AQUI ---
+      apiUrl: 'https://meu-tcc-testes-041c1dd46d1d.herokuapp.com',
+      apiToken: 'testebrabotoken'
     };
   }
 }
@@ -32,10 +35,10 @@ async function client() {
 }
 
 // --- FUNÇÃO DE CHAT (TEXTO) ---
-// (Sem alterações)
 export const enviarMensagemChat = async (prompt) => {
   try {
     const c = await client();
+    // (O endpoint é relativo, então /api/chat está correto)
     const { data } = await c.post('/api/chat', { prompt: prompt });
     return data;
   } catch (error) {
@@ -44,25 +47,18 @@ export const enviarMensagemChat = async (prompt) => {
   }
 };
 
-// --- NOVA FUNÇÃO DE CHAT (ARQUIVO) ---
-/**
- * Envia um prompt E um arquivo para um endpoint de chat de upload.
- * @param {string} prompt O texto do usuário.
- * @param {File} file O objeto de arquivo.
- * @returns {Promise<object>} A resposta do roteador de intenção (ChatResponse)
- */
+// --- FUNÇÃO DE CHAT (ARQUIVO) ---
 export const enviarMensagemComArquivo = async (prompt, file) => {
   try {
     const c = await client();
     
-    // FormData é necessário para 'multipart/form-data'
     const formData = new FormData();
     formData.append('prompt', prompt);
     formData.append('arquivo', file);
 
-    // Chama o novo endpoint /api/chat_file
+    // (O endpoint é relativo, /api/chat_file está correto)
     const { data } = await c.post('/api/chat_file', formData, {
-      // Axios detectará 'FormData' e definirá o Content-Type correto
+      // Axios definirá o Content-Type
     });
     return data;
   } catch (error) {
