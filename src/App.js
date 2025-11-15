@@ -1,4 +1,5 @@
 // src/App.js (MUI - Versão Híbrida FINAL com Upload e Relatórios)
+// (Implementa a arquitetura de download via Proxy)
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Container, Box, Tabs, Tab, Alert, LinearProgress, Stack 
@@ -11,7 +12,6 @@ import IngestaoForm from './components/IngestaoForm';
 import Header from './components/Header';
 import { 
     consultarAPI, 
-    // --- MUDANÇA 1: Importar a nova função da API ---
     consultarPorArquivo, 
     testarConexao, 
     ingestarRepositorio, 
@@ -20,37 +20,50 @@ import {
     getReportStatus
 } from './services/api';
 
+// --- ADICIONADO: Função helper para pegar config (necessário para o Token) ---
+async function getConfig() {
+  // 'chrome' é indefinido fora da extensão, então tratamos isso
+  if (window.chrome && window.chrome.storage) {
+    const { apiUrl, apiToken } = await chrome.storage.local.get(['apiUrl', 'apiToken']);
+    return {
+      apiUrl: apiUrl || 'https://protected-ridge-40630-cca6313c2003.herokuapp.com',
+      apiToken: apiToken || 'testebrabotoken'
+    };
+  } else {
+    // Fallback para dev local se não estiver na extensão
+    return {
+      apiUrl: 'https://protected-ridge-40630-cca6313c2003.herokuapp.com',
+      apiToken: 'testebrabotoken'
+    };
+  }
+}
+
+
 function App() {
   const [activeTab, setActiveTab] = useState('ingestao');
   const [backendStatus, setBackendStatus] = useState(null);
   
-  // --- INÍCIO DA ALTERAÇÃO 2: Adicionar estado para Relatórios ---
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState(null);
-  const [reportSuccess, setReportSuccess] = useState(null); // Vai guardar a URL final
+  const [reportSuccess, setReportSuccess] = useState(null);
   const [reportStatusText, setReportStatusText] = useState(null); 
   const [pollingReportJobId, setPollingReportJobId] = useState(null);
   const reportPollingInterval = useRef(null); 
-  // --- FIM DA ALTERAÇÃO 2 ---
-  // --- Estado da Consulta (Já persistido) ---
+  
   const [repositorioConsulta, setRepositorioConsulta] = useState('');
   const [query, setQuery] = useState('');
-  
-  // --- MUDANÇA 2: Adicionar estado para o upload de arquivo ---
   const [arquivo, setArquivo] = useState(null); 
   
   const [consultaResultado, setConsultaResultado] = useState(null);
   const [consultaLoading, setConsultaLoading] = useState(false);
   const [consultaError, setConsultaError] = useState(null);
 
-  // --- Estado de Ingestão (Como estava) ---
   const [ingestLoading, setIngestLoading] = useState(false);
   const [ingestError, setIngestError] = useState(null);
   const [ingestSuccess, setIngestSuccess] = useState(null);
   const [ingestStatusText, setIngestStatusText] = useState(null); 
   const [pollingJobId, setPollingJobId] = useState(null);
   
-  // ... (useRef e useEffect de testarConexao permanecem iguais) ...
   const pollingInterval = useRef(null); 
 
   const handleConsultaSubmit = async () => { 
@@ -63,13 +76,8 @@ function App() {
       const repo = repositorioConsulta.trim();
 
       if (arquivo) {
-        // ---- ROTA 1: Consulta por ARQUIVO ----
-        // (Chama a nova função de 'api.js')
         resposta = await consultarPorArquivo(repo, arquivo);
-        
       } else {
-        // ---- ROTA 2: Consulta por TEXTO ----
-        // (Lógica antiga que já funcionava)
         const dados = { 
           query: query.trim(),
           repositorio: repo,
@@ -77,7 +85,6 @@ function App() {
         };
         resposta = await consultarAPI(dados);
       }
-      
       setConsultaResultado(resposta); 
       
     } catch (erro) {
@@ -100,7 +107,6 @@ function App() {
     verificarConexao();
   }, []);
 
-  // --- useEffect de CARREGAR estado (Não vamos persistir o 'arquivo' para simplificar) ---
   useEffect(() => {
     if (window.chrome && window.chrome.storage) {
       if (chrome.runtime && chrome.runtime.sendMessage) {
@@ -133,12 +139,13 @@ function App() {
     }
   }, []);
 
+  // --- MUDANÇA CRÍTICA: LÓGICA DE POLLING DE RELATÓRIO ---
   useEffect(() => {
     const pollReportStatus = async () => {
       if (!pollingReportJobId) return;
 
       console.log("Polling de Relatório: Verificando status para", pollingReportJobId);
-      setReportLoading(true); // Garante que o loading esteja ativo
+      setReportLoading(true);
       
       try {
         const data = await getReportStatus(pollingReportJobId);
@@ -149,35 +156,59 @@ function App() {
           setPollingReportJobId(null);
           clearInterval(reportPollingInterval.current);
           
-          if (typeof data.result === 'string' && data.result.startsWith('http')) {
+          // --- INÍCIO DA MUDANÇA (LÓGICA DE DOWNLOAD) ---
+          // data.result agora é o NOME DO ARQUIVO (ex: "report-123.html")
+          
+          if (typeof data.result === 'string' && data.result.endsWith('.html')) {
             
-            const reportUrl = data.result; 
+            const filename = data.result; 
             
-            setReportSuccess({ url: reportUrl });
-            // Atualiza o status para mostrar a URL (para facilitar o debug)
-            setReportStatusText(`Relatório pronto. Teste a URL:`);
+            setReportSuccess({ filename: filename });
+            setReportStatusText(`Relatório pronto. Baixando...`);
             
-            // --- INÍCIO DA MUDANÇA (DEBUG) ---
+            // 1. Pega a config da API (URL do Heroku e Token)
+            const { apiUrl, apiToken } = await getConfig(); 
             
-            // 1. Loga a URL no console (o mais importante)
-            //    (No console, você poderá clicar nela)
-            console.log("URL DO RELATÓRIO (TESTE MANUAL):", reportUrl);
+            // 2. Constrói a URL para o *nosso* novo endpoint de download
+            const downloadUrl = `${apiUrl}/api/relatorio/download/${filename}`;
 
-            // 2. Comenta a lógica de download automático
-            /*
-            const link = document.createElement('a');
-            link.href = reportUrl;
-            link.setAttribute('download', 'relatorio.html'); 
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            */
-            
-            // --- FIM DA MUDANÇA ---
-            
+            // 3. Faz o download usando 'fetch' (para enviar o Token)
+            fetch(downloadUrl, {
+              method: 'GET',
+              headers: {
+                'X-API-Key': apiToken
+              }
+            })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`Erro de rede ou permissão: ${response.statusText}`);
+              }
+              return response.blob();
+            })
+            .then(blob => {
+                // 4. Cria um link invisível para o 'blob'
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = filename; // Define o nome do arquivo baixado
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                setReportStatusText('Download do relatório concluído.');
+            })
+            .catch(err => {
+                console.error('Erro no fetch do download:', err);
+                setReportError(`Erro ao baixar o arquivo: ${err.message}`);
+                setReportStatusText(null);
+            });
+
           } else {
+            // O worker retornou uma string de erro
             setReportError(data.result || 'Falha ao gerar relatório (resultado inesperado).');
           }
+          // --- FIM DA MUDANÇA ---
           
         } else if (data.status === 'failed') {
           console.log("Polling de Relatório: Falhou!");
@@ -201,15 +232,11 @@ function App() {
       }
     };
 
-    // Iniciar o polling se tivermos um ID
     if (pollingReportJobId) {
-      // Verifica imediatamente ao carregar
       pollReportStatus(); 
-      // E então verifica a cada 5 segundos
       reportPollingInterval.current = setInterval(pollReportStatus, 5000); 
     }
 
-    // Limpeza
     return () => {
       if (reportPollingInterval.current) {
         clearInterval(reportPollingInterval.current);
@@ -232,10 +259,6 @@ function App() {
   useEffect(() => { if (window.chrome && window.chrome.storage) { chrome.storage.local.set({ reportStatusText }); } }, [reportStatusText]);
   useEffect(() => { if (window.chrome && window.chrome.storage) { chrome.storage.local.set({ pollingReportJobId }); } }, [pollingReportJobId]);
   
-
-  
-  // --- MUDANÇA 3: A Lógica de Consulta agora é Híbrida ---
-  // (Renomeado 'handleConsulta' para 'handleConsultaSubmit' para clareza)
   const handleGerarRelatorio = async (dados) => { 
     setReportLoading(true);
     setReportError(null);
@@ -246,10 +269,9 @@ function App() {
   }
     
   try {
-    // 'dados' vem do RelatorioForm: { repositorio, prompt }
-    const resposta = await gerarRelatorio(dados); // Chama a api.js
+    const resposta = await gerarRelatorio(dados);
     setReportStatusText(resposta.mensagem || 'Relatório enfileirado...');
-    setPollingReportJobId(resposta.job_id); // Inicia o polling (via useEffect)
+    setPollingReportJobId(resposta.job_id);
     
   } catch (erro) {
     console.error('Erro ao gerar relatório:', erro);
@@ -258,7 +280,6 @@ function App() {
   }
 };
 
-  // ... (handleIngestao permanece igual) ...
   const handleIngestao = async (dados) => { 
     setIngestLoading(true);
     setIngestError(null);
@@ -284,11 +305,9 @@ function App() {
     }
   };
 
-
-  // --- MUDANÇA 4: Limpar o arquivo ao mudar de aba (Boa prática) ---
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
-    setArquivo(null); // Limpa o arquivo selecionado ao trocar de aba
+    setArquivo(null);
   };
 
   return (
@@ -315,7 +334,6 @@ function App() {
         </Box>
         
         <TabPanel value="ingestao" sx={{ p: 0, pt: 2 }}>
-          {/* ... (O painel de Ingestao não muda) ... */}
           <IngestaoForm onSubmit={handleIngestao} loading={ingestLoading} />
           <Stack spacing={1.5} sx={{ mt: 2 }}>
             {ingestLoading && (
@@ -336,16 +354,15 @@ function App() {
         </TabPanel>
         
         <TabPanel value="consulta" sx={{ p: 0, pt: 2 }}>
-          {/* --- MUDANÇA 5: Passar as novas props para o ConsultaForm --- */}
           <ConsultaForm 
-            onSubmit={handleConsultaSubmit} // <-- Nome da função atualizado
+            onSubmit={handleConsultaSubmit}
             loading={consultaLoading}
             query={query}
             setQuery={setQuery}
             repositorio={repositorioConsulta}
             setRepositorio={setRepositorioConsulta}
-            arquivo={arquivo}         // <-- Prop nova
-            setArquivo={setArquivo}   // <-- Prop nova
+            arquivo={arquivo}
+            setArquivo={setArquivo}
           />
           {consultaLoading && <LinearProgress sx={{ mt: 2 }} />}
           {consultaResultado && <ResultadoConsulta resultado={consultaResultado} />}
@@ -360,7 +377,6 @@ function App() {
           onSubmit={handleGerarRelatorio}
           loading={reportLoading}
         />
-        {/* Adiciona os Alertas e Progresso, como na Ingestão */}
         <Stack spacing={1.5} sx={{ mt: 2 }}>
           {reportLoading && (
             <>
@@ -371,7 +387,7 @@ function App() {
             </>
           )}
           {!reportLoading && reportSuccess && (
-            <Alert severity="success">{reportStatusText || 'Relatório gerado com sucesso!'}</Alert>
+            <Alert severity="success">{reportStatusText || 'Download do relatório iniciado!'}</Alert>
           )}
           {reportError && (
             <Alert severity="error">{reportError}</Alert>
