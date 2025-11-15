@@ -1,103 +1,93 @@
-// src/services/api.js
+// CÓDIGO COMPLETO PARA: src/services/api.js
+// (Refatorado para a API de Chat Unificada)
+
 import axios from 'axios';
 
-// 1. A FUNÇÃO getConfig NÃO MUDA
-async function getConfig() {
-  const { apiUrl, apiToken } = await chrome.storage.local.get(['apiUrl', 'apiToken']);
-  return {
-    apiUrl: apiUrl || 'https://protected-ridge-40630-cca6313c2003.herokuapp.com',
-    apiToken: apiToken || 'testebrabotoken'
-  };
+// --- FUNÇÃO HELPER DE CONFIGURAÇÃO (NÃO MUDA) ---
+export async function getConfig() {
+  if (window.chrome && window.chrome.storage) {
+    const { apiUrl, apiToken } = await chrome.storage.local.get(['apiUrl', 'apiToken']);
+    return {
+      apiUrl: apiUrl || 'https://protected-ridge-40630-cca6313c2003.herokuapp.com',
+      apiToken: apiToken || 'testebrabotoken'
+    };
+  } else {
+    // Fallback para dev local
+    return {
+      apiUrl: 'https://protected-ridge-40630-cca6313c2003.herokuapp.com',
+      apiToken: 'testebrabotoken'
+    };
+  }
 }
 
-// 2. O 'client' MUDOU: Removemos o 'Content-Type' padrão.
-//    Isso é CRUCIAL. O Axios agora definirá o Content-Type
-//    automaticamente (json para texto, multipart/form-data para arquivos).
+// --- CLIENTE AXIOS (NÃO MUDA) ---
 async function client() {
   const { apiUrl, apiToken } = await getConfig();
   return axios.create({
     baseURL: apiUrl,
     headers: {
-      // 'Content-Type': 'application/json', <-- REMOVIDO!
       'X-API-Key': apiToken
+      // (Corretamente sem 'Content-Type' padrão)
     },
-    timeout: 60000 // Aumentado para 60s para uploads
+    timeout: 60000 
   });
 }
 
-// 3. testarConexao NÃO MUDA
+// --- NOVA FUNÇÃO DE CHAT ---
+/**
+ * Envia um prompt do usuário para o endpoint de chat unificado.
+ * @param {string} prompt O texto do usuário.
+ * @returns {Promise<object>} A resposta do roteador de intenção (ChatResponse)
+ */
+export const enviarMensagemChat = async (prompt) => {
+  try {
+    const c = await client();
+    const { data } = await c.post('/api/chat', { prompt: prompt });
+    return data; // Retorna: { response_type, message, job_id, ... }
+  } catch (error) {
+    console.error("Erro em enviarMensagemChat:", error);
+    // Repassa o erro de forma estruturada
+    throw error.response?.data || new Error(error.message);
+  }
+};
+
+// --- FUNÇÕES DE POLLING (NÃO MUDAM) ---
+// (Essas funções são essenciais para o novo App.js)
+
+/**
+ * Verifica o status de um job de RELATÓRIO.
+ */
+export const getReportStatus = async (jobId) => {
+  try {
+    const c = await client();
+    const { data } = await c.get(`/api/relatorio/status/${jobId}`);
+    return data; // Retorna { status: '...', result: '...', error: '...' }
+  } catch (error) {
+    console.error("Erro em getReportStatus:", error);
+    throw error.response?.data || new Error(error.message);
+  }
+};
+
+/**
+ * Verifica o status de um job de INGESTÃO.
+ */
+export const getIngestStatus = async (jobId) => {
+  try {
+    const c = await client();
+    const { data } = await c.get(`/api/ingest/status/${jobId}`);
+    return data; 
+  } catch (error) {
+    console.error("Erro em getIngestStatus:", error);
+    throw error.response?.data || new Error(error.message);
+  }
+};
+
+// --- FUNÇÃO DE TESTE (NÃO MUDA) ---
+/**
+ * Verifica a saúde do backend.
+ */
 export const testarConexao = async () => {
   const c = await client();
   const { data } = await c.get('/health');
   return data;
-};
-
-// 4. consultarAPI NÃO MUDA
-export const consultarAPI = async (dados) => {
-  const c = await client();
-  const { data } = await c.post('/api/consultar', dados);
-  return data;
-};
-
-// 5. INÍCIO DAS NOVAS FUNÇÕES E MUDANÇAS
-
-/**
- * NOVA FUNÇÃO: Envia uma consulta via upload de arquivo.
- */
-export const consultarPorArquivo = async (repositorio, arquivo) => {
-  const c = await client();
-  
-  // Cria um FormData para enviar o arquivo
-  const formData = new FormData();
-  formData.append('repositorio', repositorio);
-  formData.append('arquivo', arquivo); // O objeto 'File' do input
-
-  // Faz o POST para a nova rota /api/consultar_arquivo
-  const { data } = await c.post('/api/consultar_arquivo', formData);
-  return data;
-};
-
-/**
- * FUNÇÃO ATUALIZADA: gerarRelatorio agora envia o prompt
- * e sabe como lidar com a resposta .html.
- */
-export const gerarRelatorio = async (dados) => {
-  // 'dados' é: { repositorio: "user/repo", prompt: "..." }
-  const c = await client();
-  // O backend agora retorna: { "mensagem": "...", "job_id": "..." }
-  const { data } = await c.post('/api/relatorio', dados);
-  return data; // Retorna o { mensagem, job_id }
-};
-
-// --- INÍCIO DA NOVA FUNÇÃO ---
-/**
- * NOVA FUNÇÃO: Verifica o status de um job de relatório.
- */
-export const getReportStatus = async (jobId) => {
-  const c = await client();
-  // Chama o novo endpoint de status de relatório
-  const { data } = await c.get(`/api/relatorio/status/${jobId}`);
-  return data; // Retorna { status: '...', result: '...', error: '...' }
-};
-
-// 6. ingestarRepositorio NÃO MUDA
-export const ingestarRepositorio = async (dados) => {
-  const c = await client();
-  const { data } = await c.post('/api/ingest', dados);
-  return data;
-};
-
-// 7. extrairInfoRepositorio NÃO MUDA
-export const extrairInfoRepositorio = () => {
-  const url = window.location.href;
-  const m = url.match(/github\.com\/([^\/]+\/[^\/]+)/);
-  if (m && m[1]) return { repositorio: m[1], url };
-  throw new Error('Não foi possível identificar o repositório');
-};
-
-// 8. getIngestStatus NÃO MUDA
-export const getIngestStatus = async (jobId) => {
-  const c = await client();
-  const { data } = await c.get(`/api/ingest/status/${jobId}`);
-  return data; 
 };
