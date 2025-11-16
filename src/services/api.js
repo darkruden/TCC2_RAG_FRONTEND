@@ -13,22 +13,27 @@ export const testarConexao = async (apiClient) => {
 /**
  * Envia o prompt inicial para o Roteador de Intenção.
  * @param {axios.AxiosInstance} apiClient O cliente axios
- * @param {string} prompt O prompt do usuário
+ * @param {Array<Object>} messages O histórico de mensagens
+ * @param {string} prompt O prompt *atual* do usuário (para upload de arquivo)
  * @param {File | null} file Opcional: Um arquivo
  * @returns {Promise<object>} A *resposta do roteador* (ex: { response_type: 'stream_answer', ... })
  */
-export const iniciarChat = async (apiClient, prompt, file) => {
+export const iniciarChat = async (apiClient, messages, prompt, file) => {
   try {
     let data;
+    const messages_json = JSON.stringify(messages); // Converte o histórico
+
     if (file) {
       // Rota de Upload de Arquivo
       const formData = new FormData();
       formData.append('prompt', prompt);
       formData.append('arquivo', file);
+      formData.append('messages_json', messages_json); // <-- Envia o histórico
       ({ data } = await apiClient.post('/api/chat_file', formData));
     } else {
       // Rota de Texto
-      ({ data } = await apiClient.post('/api/chat', { prompt: prompt }));
+      // O prompt já está incluído como a última mensagem em 'messages'
+      ({ data } = await apiClient.post('/api/chat', { messages: messages })); // <-- Envia o histórico
     }
     return data;
     

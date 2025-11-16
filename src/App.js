@@ -154,6 +154,8 @@ function App() {
   const handleClearChat = () => { clearChat(); };
   
   // --- LÓGICA DE SUBMIT (Sem alterações) ---
+  // --- LÓGICA DE SUBMIT (Refatorada para Contexto) ---
+  // --- LÓGICA DE SUBMIT (Refatorada para Contexto) ---
   const handleChatSubmit = async (e) => {
     e.preventDefault();
     const prompt = inputPrompt.trim();
@@ -161,13 +163,38 @@ function App() {
     
     const userPrompt = prompt || (arquivo ? `Analisar o arquivo: ${arquivo.name}` : '');
     
-    submitPrompt(userPrompt + (arquivo ? `\n(Anexado: ${arquivo.name})` : ''));
+    // --- INÍCIO DA ATUALIZAÇÃO (Memória de Chat) ---
+
+    // 1. Cria o objeto da nova mensagem
+    const newMessage = {
+      id: `msg_${Date.now()}`, // ID local temporário
+      sender: 'user',
+      text: userPrompt + (arquivo ? `\n(Anexado: ${arquivo.name})` : '')
+    };
+    
+    // 2. Cria a lista de mensagens *completa* que será enviada
+    const newMessages = [...messages, newMessage];
+
+    // 3. Atualiza a UI imediatamente (usando as funções do Zustand)
+    addMessage(newMessage.sender, newMessage.text);
+    setInputPrompt(''); // Limpa o input
+    
+    // (A função 'submitPrompt' foi substituída pelas duas linhas acima)
+    
+    // --- FIM DA ATUALIZAÇÃO ---
     
     try {
-      const data = await iniciarChat(apiClient, userPrompt, arquivo);
+      // 4. Envia o histórico COMPLETO para a API
+      const data = await iniciarChat(
+        apiClient, 
+        newMessages, // <-- O histórico completo
+        userPrompt,  // <-- O prompt atual (necessário para o FormData do /chat_file)
+        arquivo
+      );
       
       if (arquivo) handleRemoveFile();
 
+      // O 'switch' case abaixo não precisa de alterações
       switch (data.response_type) {
         
         case 'stream_answer':
@@ -198,8 +225,6 @@ function App() {
         case 'job_enqueued':
           addMessage('bot', data.message);
           
-          // Esta verificação também é importante:
-          // Só tenta enviar a mensagem se a API existir
           if (window.chrome && chrome.runtime && chrome.runtime.sendMessage) {
             const jobType = data.message.includes('ingestão') ? 'ingest' : 'report';
             chrome.runtime.sendMessage({
