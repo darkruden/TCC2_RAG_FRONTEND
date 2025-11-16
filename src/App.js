@@ -1,25 +1,26 @@
 // CÓDIGO COMPLETO PARA: src/App.js
-// (Layout corrigido e UI de anexo de arquivo adicionada)
+// (Implementa Itens 1 e 2: Persistência de Chat e Polling via Background)
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Container, Box, Alert, Stack, TextField, IconButton,
-  CircularProgress, Paper, Typography, Chip // <-- Chip adicionado
+  CircularProgress, Paper, Typography, Chip
 } from '@mui/material';
 import { 
     Send as SendIcon, 
-    AttachFile as AttachFileIcon // <-- Ícone de anexo
+    AttachFile as AttachFileIcon,
+    ClearAll as ClearAllIcon // <-- Ícone para limpar chat
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import Header from './components/Header';
 import { 
     enviarMensagemChat,
-    enviarMensagemComArquivo, // <-- NOVA FUNÇÃO (será criada)
+    enviarMensagemComArquivo,
     testarConexao, 
-    getIngestStatus,
-    getReportStatus,
+    // getIngestStatus e getReportStatus são REMOVIDOS daqui
+    // O background script cuidará disso
     getConfig
-} from './services/api'; // (Assumindo que api.js será atualizado)
+} from './services/api';
 
 // (Componente ChatMessage não muda)
 function ChatMessage({ message }) {
@@ -48,25 +49,43 @@ function App() {
   const [backendStatus, setBackendStatus] = useState(null);
   const [inputPrompt, setInputPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [messages, setMessages] = useState([
-    { id: '1', sender: 'bot', text: 'Olá! Como posso ajudar? Você pode ingerir, consultar ou salvar uma instrução anexando um arquivo .txt.' }
-  ]);
   
-  // --- NOVO ESTADO E REF PARA ARQUIVOS ---
+  // --- ITEM 1: Persistência do Chat ---
+  const [messages, setMessages] = useState([]); // Começa vazio
+  
   const [arquivo, setArquivo] = useState(null);
-  const fileInputRef = useRef(null); // Ref para o input de arquivo oculto
-
-  // (Lógica de Polling - não muda)
-  const [pollingIngestJobId, setPollingIngestJobId] = useState(null);
-  const [pollingReportJobId, setPollingReportJobId] = useState(null);
-  const ingestInterval = useRef(null);
-  const reportInterval = useRef(null);
+  const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
 
+  // --- ITEM 1: Hook para CARREGAR chat do storage ---
+  useEffect(() => {
+    // Carrega o histórico de mensagens salvo quando o popup abre
+    if (window.chrome && chrome.storage) {
+      chrome.storage.local.get(['chatMessages'], (result) => {
+        if (result.chatMessages && result.chatMessages.length > 0) {
+          setMessages(result.chatMessages);
+        } else {
+          // Define a mensagem inicial se o histórico estiver vazio
+          setMessages([{ id: '1', sender: 'bot', text: 'Olá! Como posso ajudar? Posso ingerir, consultar ou salvar uma instrução anexando um arquivo .txt.' }]);
+        }
+      });
+    }
+  }, []); // Roda apenas uma vez na inicialização
+
+  // --- ITEM 1: Hook para SALVAR chat no storage ---
+  useEffect(() => {
+    // Salva o histórico de mensagens a cada mudança
+    if (window.chrome && chrome.storage && messages.length > 0) {
+      chrome.storage.local.set({ chatMessages: messages });
+    }
+  }, [messages]); // Roda toda vez que 'messages' muda
+
+  // Hook para rolar o chat para baixo
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Hook para testar a conexão (não muda)
   useEffect(() => {
     (async () => {
       try {
@@ -78,45 +97,63 @@ function App() {
     })();
   }, []);
   
+  // --- ITEM 2: Hook para OUVIR o background script ---
+  useEffect(() => {
+    const messageListener = (request, sender, sendResponse) => {
+      // O background.js nos enviará mensagens quando um job terminar
+      if (request.action === 'job_finished') {
+        addMessage('bot', `✅ **Tarefa Concluída:** ${request.message}`);
+      } else if (request.action === 'job_failed') {
+        addMessage('bot', `❌ **Tarefa Falhou:** ${request.error}`);
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(messageListener);
+
+    // Limpa o listener quando o componente desmonta
+    return () => {
+      chrome.runtime.onMessage.removeListener(messageListener);
+    };
+  }, []); // Roda apenas uma vez
+  
   const addMessage = (sender, text) => {
     setMessages(prev => [...prev, { id: Date.now().toString(), sender, text }]);
   };
 
-  // --- NOVA LÓGICA DE UPLOAD ---
-  const handleAttachClick = () => {
-    // Clica no input de arquivo oculto
-    fileInputRef.current.click();
-  };
-
+  const handleAttachClick = () => { fileInputRef.current.click(); };
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 500 * 1024) { // Limite de 500KB
-        addMessage('bot', '❌ **Erro:** O arquivo é muito grande (limite de 500KB).');
-        return;
+      if (file.size > 500 * 1024) {
+        addMessage('bot', '❌ **Erro:** O arquivo é muito grande (limite de 500KB).'); return;
       }
       if (!file.type.startsWith('text/')) {
-        addMessage('bot', '❌ **Erro:** Tipo de arquivo inválido. Apenas .txt ou .md são permitidos.');
-        return;
+        addMessage('bot', '❌ **Erro:** Tipo de arquivo inválido. Apenas .txt ou .md.'); return;
       }
       setArquivo(file);
     }
   };
-
   const handleRemoveFile = () => {
     setArquivo(null);
-    fileInputRef.current.value = null; // Limpa o input
+    if (fileInputRef.current) fileInputRef.current.value = null;
   };
   
-  // --- LÓGICA DE SUBMIT ATUALIZADA ---
+  // --- ITEM 1: Função para Limpar o Chat ---
+  const handleClearChat = () => {
+    const initialMessage = [{ id: '1', sender: 'bot', text: 'Olá! Como posso ajudar?' }];
+    setMessages(initialMessage);
+    // Limpa também o storage
+    if (window.chrome && chrome.storage) {
+      chrome.storage.local.set({ chatMessages: initialMessage });
+    }
+  };
+
+  // --- LÓGICA DE SUBMIT ATUALIZADA (Item 2) ---
   const handleChatSubmit = async (e) => {
     e.preventDefault();
     const prompt = inputPrompt.trim();
-    
-    // Não permite envio se estiver carregando ou se não houver prompt E arquivo
     if (isLoading || (!prompt && !arquivo)) return;
     
-    // Se tiver um arquivo, o prompt é opcional
     const userPrompt = prompt || (arquivo ? `Analisar o arquivo: ${arquivo.name}` : '');
     
     addMessage('user', userPrompt + (arquivo ? `\n(Anexado: ${arquivo.name})` : ''));
@@ -125,32 +162,35 @@ function App() {
 
     try {
       let data;
-      
       if (arquivo) {
-        // --- ROTA DE ARQUIVO ---
-        // Chama a nova função de API com FormData
         data = await enviarMensagemComArquivo(userPrompt, arquivo);
-        // Limpa o arquivo após o envio
         handleRemoveFile();
       } else {
-        // --- ROTA DE TEXTO (Antiga) ---
         data = await enviarMensagemChat(userPrompt);
       }
       
-      // Processa a resposta do Roteador (não muda)
+      // Processa a resposta do Roteador
       switch (data.response_type) {
         case 'answer':
         case 'clarification':
           addMessage('bot', data.message);
           break;
+          
         case 'job_enqueued':
           addMessage('bot', data.message);
-          if (data.message.includes('ingestão')) {
-            setPollingIngestJobId(data.job_id);
-          } else if (data.message.includes('relatório')) {
-            setPollingReportJobId(data.job_id);
-          }
+          
+          // --- ITEM 2: AVISA O BACKGROUND PARA COMEÇAR O POLLING ---
+          const jobType = data.message.includes('ingestão') ? 'ingest' : 'report';
+          chrome.runtime.sendMessage({
+            action: 'startPolling',
+            jobId: data.job_id,
+            type: jobType
+          });
+          // O App.js não faz mais o polling.
+          // ----------------------------------------------------
+          
           break;
+          
         case 'error':
         default:
           addMessage('bot', `Houve um erro: ${data.message}`);
@@ -162,99 +202,34 @@ function App() {
       addMessage('bot', `Erro ao conectar com o backend: ${error.detail || error.message}`);
     } finally {
       setIsLoading(false);
-      // Garante que o estado do arquivo seja limpo
       if (arquivo) handleRemoveFile();
     }
   };
 
-  // (Lógica de Polling de Ingestão - não muda)
-  useEffect(() => {
-    const pollIngestStatus = async () => { /* ... (código idêntico ao anterior) ... */ };
-    if (pollingIngestJobId) {
-      const pollIngestStatus = async () => {
-        if (!pollingIngestJobId) return;
-        try {
-          const data = await getIngestStatus(pollingIngestJobId);
-          if (data.status === 'finished') {
-            addMessage('bot', `✅ **Ingestão Concluída:** ${data.result.mensagem || 'Repositório processado!'}`);
-            setPollingIngestJobId(null); clearInterval(ingestInterval.current);
-          } else if (data.status === 'failed') {
-            addMessage('bot', `❌ **Ingestão Falhou:** ${data.error || 'Erro desconhecido.'}`);
-            setPollingIngestJobId(null); clearInterval(ingestInterval.current);
-          }
-        } catch (err) {
-          addMessage('bot', `❌ **Erro de Polling:** ${err.message}`);
-          setPollingIngestJobId(null); clearInterval(ingestInterval.current);
-        }
-      };
-      pollIngestStatus();
-      ingestInterval.current = setInterval(pollIngestStatus, 5000);
-    }
-    return () => { if (ingestInterval.current) clearInterval(ingestInterval.current); };
-  }, [pollingIngestJobId]);
-
-  // (Lógica de Polling de Relatório - não muda)
-  useEffect(() => {
-    const pollReportStatus = async () => { /* ... (código idêntico ao anterior) ... */ };
-    if (pollingReportJobId) {
-      const pollReportStatus = async () => {
-        if (!pollingReportJobId) return;
-        try {
-          const data = await getReportStatus(pollingReportJobId);
-          if (data.status === 'finished') {
-            const filename = data.result;
-            addMessage('bot', `✅ **Relatório Pronto!** Iniciando download de \`${filename}\`...`);
-            const { apiUrl, apiToken } = await getConfig(); 
-            const downloadUrl = `${apiUrl}/api/relatorio/download/${filename}`;
-            fetch(downloadUrl, { method: 'GET', headers: { 'X-API-Key': apiToken } })
-            .then(response => {
-              if (!response.ok) throw new Error(`Erro de rede: ${response.statusText}`);
-              return response.blob();
-            })
-            .then(blob => {
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none'; a.href = url; a.download = filename;
-                document.body.appendChild(a); a.click();
-                window.URL.revokeObjectURL(url); document.body.removeChild(a);
-                addMessage('bot', 'Download concluído!');
-            })
-            .catch(err => {
-                addMessage('bot', `❌ **Falha no Download:** ${err.message}`);
-            });
-            setPollingReportJobId(null); clearInterval(reportInterval.current);
-          } else if (data.status === 'failed') {
-            addMessage('bot', `❌ **Relatório Falhou:** ${data.error || 'Erro desconhecido.'}`);
-            setPollingReportJobId(null); clearInterval(reportInterval.current);
-          }
-        } catch (err) {
-          addMessage('bot', `❌ **Erro de Polling:** ${err.message}`);
-          setPollingReportJobId(null); clearInterval(reportInterval.current);
-        }
-      };
-      pollReportStatus(); 
-      reportInterval.current = setInterval(pollReportStatus, 5000); 
-    }
-    return () => { if (reportInterval.current) clearInterval(reportInterval.current); };
-  }, [pollingReportJobId]);
-
+  // --- REMOVIDO (Item 2) ---
+  // O useEffect[pollingIngestJobId] foi totalmente removido.
+  // O useEffect[pollingReportJobId] foi totalmente removido.
+  // O background.js agora cuida disso.
 
   return (
-    // --- CORREÇÃO DE LAYOUT (PROBLEMA 1) ---
     <Container 
       disableGutters 
       sx={{ 
-        height: '600px', // Altura fixa
-        minWidth: '380px', // Largura mínima (corrige compressão)
-        width: '100%',     // Permite expandir
+        height: '600px',
+        minWidth: '380px', // <-- Correção de layout
+        width: '100%',
         display: 'flex',
         flexDirection: 'column',
         p: 0,
         bgcolor: 'background.default'
       }}
     >
-      <Box sx={{ p: 2.5, pb: 0 }}>
+      <Box sx={{ p: 2.5, pb: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Header />
+        {/* --- ITEM 1: Botão de Limpar Chat --- */}
+        <IconButton onClick={handleClearChat} title="Limpar histórico do chat" size="small">
+          <ClearAllIcon />
+        </IconButton>
       </Box>
       
       {backendStatus !== null && (
@@ -279,7 +254,6 @@ function App() {
         </Stack>
       </Box>
       
-      {/* --- UI DE INPUT ATUALIZADA (PROBLEMA 2) --- */}
       <Box 
         as="form" 
         onSubmit={handleChatSubmit} 
@@ -290,7 +264,6 @@ function App() {
           bgcolor: 'background.paper'
         }}
       >
-        {/* Chip do arquivo anexado */}
         {arquivo && (
           <Chip
             label={arquivo.name}
@@ -301,10 +274,7 @@ function App() {
           />
         )}
         
-        {/* Input de texto e botões */}
         <Stack direction="row" spacing={1} alignItems="center">
-          
-          {/* Input de arquivo (oculto) */}
           <input
             type="file"
             ref={fileInputRef}
@@ -312,8 +282,6 @@ function App() {
             style={{ display: 'none' }}
             accept=".txt,.md,text/plain,text/markdown"
           />
-          
-          {/* Botão de Anexo */}
           <IconButton 
             onClick={handleAttachClick} 
             disabled={isLoading || !backendStatus}
@@ -330,6 +298,7 @@ function App() {
             value={inputPrompt}
             onChange={(e) => setInputPrompt(e.target.value)}
             disabled={isLoading || !backendStatus}
+            autoFocus // Foca o input ao abrir
           />
           <IconButton 
             type="submit" 
