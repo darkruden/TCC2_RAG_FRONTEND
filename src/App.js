@@ -1,5 +1,6 @@
 // CÓDIGO COMPLETO PARA: src/App.js
-// (Implementa Itens 1 e 2: Persistência de Chat e Polling via Background)
+// (Implementa Item 2: Persistência do Input de Chat)
+// (Remove lógica de download, que agora está no background.js)
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
@@ -9,18 +10,16 @@ import {
 import { 
     Send as SendIcon, 
     AttachFile as AttachFileIcon,
-    ClearAll as ClearAllIcon // <-- Ícone para limpar chat
+    ClearAll as ClearAllIcon
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import Header from './components/Header';
 import { 
     enviarMensagemChat,
     enviarMensagemComArquivo,
-    testarConexao, 
-    // getIngestStatus e getReportStatus são REMOVIDOS daqui
-    // O background script cuidará disso
-    getConfig
-} from './services/api';
+    testarConexao
+    // (Não precisamos mais de 'getConfig', 'getIngestStatus', 'getReportStatus')
+} from './services/api'; 
 
 // (Componente ChatMessage não muda)
 function ChatMessage({ message }) {
@@ -29,12 +28,9 @@ function ChatMessage({ message }) {
     <Box sx={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', mb: 2 }}>
       <Paper 
         variant="outlined"
-        sx={{
-          p: 1.5,
-          bgcolor: isUser ? 'primary.main' : 'background.paper',
+        sx={{ p: 1.5, bgcolor: isUser ? 'primary.main' : 'background.paper',
           color: isUser ? 'primary.contrastText' : 'text.primary',
-          maxWidth: '80%',
-          borderRadius: isUser ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
+          maxWidth: '80%', borderRadius: isUser ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
         }}
       >
         <Typography component="div" variant="body2">
@@ -47,40 +43,50 @@ function ChatMessage({ message }) {
 
 function App() {
   const [backendStatus, setBackendStatus] = useState(null);
-  const [inputPrompt, setInputPrompt] = useState('');
+  const [inputPrompt, setInputPrompt] = useState(''); // <-- Item 2
   const [isLoading, setIsLoading] = useState(false);
-  
-  // --- ITEM 1: Persistência do Chat ---
-  const [messages, setMessages] = useState([]); // Começa vazio
-  
+  const [messages, setMessages] = useState([]);
   const [arquivo, setArquivo] = useState(null);
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
 
-  // --- ITEM 1: Hook para CARREGAR chat do storage ---
+  // --- ITEM 1 & 2: Hook para CARREGAR estado do storage ---
   useEffect(() => {
-    // Carrega o histórico de mensagens salvo quando o popup abre
     if (window.chrome && chrome.storage) {
-      chrome.storage.local.get(['chatMessages'], (result) => {
+      // Pede para o background resetar o badge de notificação
+      chrome.runtime.sendMessage({ action: 'popupAbertoResetarBadge' });
+      
+      // Carrega o histórico de chat E o input salvo
+      chrome.storage.local.get(['chatMessages', 'inputPrompt'], (result) => {
         if (result.chatMessages && result.chatMessages.length > 0) {
           setMessages(result.chatMessages);
         } else {
-          // Define a mensagem inicial se o histórico estiver vazio
-          setMessages([{ id: '1', sender: 'bot', text: 'Olá! Como posso ajudar? Posso ingerir, consultar ou salvar uma instrução anexando um arquivo .txt.' }]);
+          setMessages([{ id: '1', sender: 'bot', text: 'Olá! Como posso ajudar?' }]);
+        }
+        // Restaura o texto que o usuário estava digitando
+        if (result.inputPrompt) {
+          setInputPrompt(result.inputPrompt);
         }
       });
     }
-  }, []); // Roda apenas uma vez na inicialização
+  }, []); // Roda apenas uma vez
 
-  // --- ITEM 1: Hook para SALVAR chat no storage ---
+  // --- ITEM 1: Hook para SALVAR chat ---
   useEffect(() => {
-    // Salva o histórico de mensagens a cada mudança
     if (window.chrome && chrome.storage && messages.length > 0) {
       chrome.storage.local.set({ chatMessages: messages });
     }
-  }, [messages]); // Roda toda vez que 'messages' muda
+  }, [messages]);
 
-  // Hook para rolar o chat para baixo
+  // --- ITEM 2: Hook para SALVAR input ---
+  useEffect(() => {
+    // Salva o rascunho do input
+    if (window.chrome && chrome.storage) {
+      chrome.storage.local.set({ inputPrompt: inputPrompt });
+    }
+  }, [inputPrompt]); // Roda toda vez que o input muda
+
+  // Hook para rolar o chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -100,17 +106,21 @@ function App() {
   // --- ITEM 2: Hook para OUVIR o background script ---
   useEffect(() => {
     const messageListener = (request, sender, sendResponse) => {
-      // O background.js nos enviará mensagens quando um job terminar
+      console.log("App.js recebeu mensagem:", request);
+      
       if (request.action === 'job_finished') {
-        addMessage('bot', `✅ **Tarefa Concluída:** ${request.message}`);
+        // (A lógica de download foi REMOVIDA daqui)
+        addMessage('bot', request.message);
       } else if (request.action === 'job_failed') {
         addMessage('bot', `❌ **Tarefa Falhou:** ${request.error}`);
       }
+      
+      // Confirma o recebimento
+      sendResponse({ success: true });
+      return true;
     };
 
     chrome.runtime.onMessage.addListener(messageListener);
-
-    // Limpa o listener quando o componente desmonta
     return () => {
       chrome.runtime.onMessage.removeListener(messageListener);
     };
@@ -120,16 +130,13 @@ function App() {
     setMessages(prev => [...prev, { id: Date.now().toString(), sender, text }]);
   };
 
+  // (Funções de Anexo não mudam)
   const handleAttachClick = () => { fileInputRef.current.click(); };
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 500 * 1024) {
-        addMessage('bot', '❌ **Erro:** O arquivo é muito grande (limite de 500KB).'); return;
-      }
-      if (!file.type.startsWith('text/')) {
-        addMessage('bot', '❌ **Erro:** Tipo de arquivo inválido. Apenas .txt ou .md.'); return;
-      }
+      if (file.size > 500 * 1024) { addMessage('bot', '❌ **Erro:** O arquivo é muito grande (500KB).'); return; }
+      if (!file.type.startsWith('text/')) { addMessage('bot', '❌ **Erro:** Tipo de arquivo inválido.'); return; }
       setArquivo(file);
     }
   };
@@ -138,13 +145,16 @@ function App() {
     if (fileInputRef.current) fileInputRef.current.value = null;
   };
   
-  // --- ITEM 1: Função para Limpar o Chat ---
   const handleClearChat = () => {
     const initialMessage = [{ id: '1', sender: 'bot', text: 'Olá! Como posso ajudar?' }];
     setMessages(initialMessage);
-    // Limpa também o storage
+    setInputPrompt(''); // Limpa o input
+    // Limpa o storage
     if (window.chrome && chrome.storage) {
-      chrome.storage.local.set({ chatMessages: initialMessage });
+      chrome.storage.local.set({ 
+        chatMessages: initialMessage,
+        inputPrompt: '' 
+      });
     }
   };
 
@@ -157,7 +167,14 @@ function App() {
     const userPrompt = prompt || (arquivo ? `Analisar o arquivo: ${arquivo.name}` : '');
     
     addMessage('user', userPrompt + (arquivo ? `\n(Anexado: ${arquivo.name})` : ''));
-    setInputPrompt('');
+    
+    // --- ITEM 2: Limpa o input E O CACHE do input ---
+    setInputPrompt(''); 
+    if (window.chrome && chrome.storage) {
+      chrome.storage.local.set({ inputPrompt: '' });
+    }
+    // --- Fim da mudança ---
+    
     setIsLoading(true);
 
     try {
@@ -169,34 +186,26 @@ function App() {
         data = await enviarMensagemChat(userPrompt);
       }
       
-      // Processa a resposta do Roteador
       switch (data.response_type) {
         case 'answer':
         case 'clarification':
           addMessage('bot', data.message);
           break;
-          
         case 'job_enqueued':
           addMessage('bot', data.message);
-          
-          // --- ITEM 2: AVISA O BACKGROUND PARA COMEÇAR O POLLING ---
+          // Avisa o background para começar o polling
           const jobType = data.message.includes('ingestão') ? 'ingest' : 'report';
           chrome.runtime.sendMessage({
             action: 'startPolling',
             jobId: data.job_id,
             type: jobType
           });
-          // O App.js não faz mais o polling.
-          // ----------------------------------------------------
-          
           break;
-          
         case 'error':
         default:
           addMessage('bot', `Houve um erro: ${data.message}`);
           break;
       }
-      
     } catch (error) {
       console.error('Erro no handleChatSubmit:', error);
       addMessage('bot', `Erro ao conectar com o backend: ${error.detail || error.message}`);
@@ -206,17 +215,14 @@ function App() {
     }
   };
 
-  // --- REMOVIDO (Item 2) ---
-  // O useEffect[pollingIngestJobId] foi totalmente removido.
-  // O useEffect[pollingReportJobId] foi totalmente removido.
-  // O background.js agora cuida disso.
+  // --- POLLING REMOVIDO DAQUI ---
 
   return (
     <Container 
       disableGutters 
       sx={{ 
         height: '600px',
-        minWidth: '380px', // <-- Correção de layout
+        minWidth: '380px',
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
@@ -226,7 +232,6 @@ function App() {
     >
       <Box sx={{ p: 2.5, pb: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Header />
-        {/* --- ITEM 1: Botão de Limpar Chat --- */}
         <IconButton onClick={handleClearChat} title="Limpar histórico do chat" size="small">
           <ClearAllIcon />
         </IconButton>
@@ -298,7 +303,7 @@ function App() {
             value={inputPrompt}
             onChange={(e) => setInputPrompt(e.target.value)}
             disabled={isLoading || !backendStatus}
-            autoFocus // Foca o input ao abrir
+            autoFocus
           />
           <IconButton 
             type="submit" 
