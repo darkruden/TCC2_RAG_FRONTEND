@@ -11,7 +11,7 @@ import theme from './theme';
 import AppWrapper from './AppWrapper'; // <-- 2. Mudar de App para AppWrapper
 
 // 3. Obtenha seu Client ID (o mesmo que você colocou no Heroku)
-const GOOGLE_CLIENT_ID = "SEU_GOOGLE_CLIENT_ID_AQUI"; 
+const GOOGLE_CLIENT_ID = "831244530124-rv13ko24si2u8edj23agc4c2greva6nq.apps.googleusercontent.com"; 
 
 const queryClient = new QueryClient();
 

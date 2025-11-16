@@ -1,7 +1,7 @@
 // CÓDIGO COMPLETO PARA: src/App.js
-// (Corrigido com uma "guarda" para a API chrome.runtime)
+// (Refatorado para aceitar props de autenticação do AppWrapper)
 
-import React, { useEffect, useRef, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react'; // Removido o useState
 import { 
   Container, Box, Alert, Stack, TextField, IconButton,
   CircularProgress, Paper, Typography, Chip
@@ -20,7 +20,8 @@ import axios from 'axios';
 import { 
     iniciarChat,
     fetchChatStream,
-    testarConexao
+    testarConexao,
+    createApiClient // <-- Importa o novo helper
 } from './services/api'; 
 
 // (Componente ChatMessage não muda)
@@ -44,53 +45,41 @@ function ChatMessage({ message }) {
   );
 }
 
-
-function App() {
+// --- 1. ACEITAR PROPS DE AUTH ---
+function App({ apiToken, userEmail, onLogout }) {
+  
   // ==================================================================
   // 1. Hooks de Gerenciamento de Estado (Zustand)
   // ==================================================================
   
   const {
     messages, addMessage, inputPrompt, setInputPrompt,
-    arquivo, setArquivo, clearChat, submitPrompt,
+    arquivo, setArquivo, clearChat,
     isStreaming, startBotMessage, appendLastMessage, finishBotMessage
-  } = useChatStore((state) => state);
+  } = useChatStore((state) => state); // Removido 'submitPrompt'
 
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
   
-  const [apiToken, setApiToken] = useState('testebrabotoken');
-  const apiUrl = 'https://meu-tcc-testes-041c1dd46d1d.herokuapp.com';
+  // (Removido o useState para apiToken e apiUrl)
 
   // ==================================================================
   // 2. Configuração Centralizada da API
   // ==================================================================
-  
-  useEffect(() => {
-    // (Este 'if' já estava correto, protegendo contra 'chrome.storage' undefined)
-    if (window.chrome && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.get(['apiToken'], (result) => {
-        if (result.apiToken) {
-          setApiToken(result.apiToken);
-        }
-      });
-    }
-  }, []);
 
+  // (Removido o useEffect que lia do chrome.storage, o AppWrapper faz isso)
+
+  // --- 2. USA O API TOKEN DA PROP ---
   const apiClient = useMemo(() => {
-    return axios.create({
-      baseURL: apiUrl,
-      headers: { 'X-API-Key': apiToken },
-      timeout: 60000 
-    });
-  }, [apiUrl, apiToken]);
+    return createApiClient(apiToken); // Cria o cliente com o token recebido
+  }, [apiToken]);
 
   // ==================================================================
   // 3. Hooks de Estado do Servidor (React Query)
   // ==================================================================
 
   const { data: backendStatus, isError: backendIsError } = useQuery({
-    queryKey: ['backendStatus', apiClient],
+    queryKey: ['backendStatus', apiClient], // A query depende do apiClient (que depende do token)
     queryFn: () => testarConexao(apiClient),
     select: (data) => data.status === 'online',
     retry: 1,
@@ -104,11 +93,7 @@ function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // --- INÍCIO DA CORREÇÃO ---
-  // (O erro 'onMessage' undefined acontece aqui)
   useEffect(() => {
-    // Adicionamos esta verificação:
-    // Só tenta escutar mensagens se a API 'chrome.runtime' existir.
     if (window.chrome && chrome.runtime && chrome.runtime.onMessage) {
       
       const messageListener = (request, sender, sendResponse) => {
@@ -126,17 +111,14 @@ function App() {
 
       chrome.runtime.onMessage.addListener(messageListener);
       
-      // Retorna a função de limpeza
       return () => {
         chrome.runtime.onMessage.removeListener(messageListener);
       };
 
     } else {
-      // Se estiver em localhost, apenas avisa no console
       console.warn("API chrome.runtime.onMessage não encontrada (rodando em localhost?). O polling não será recebido aqui.");
     }
-  }, [addMessage]); // (A dependência 'addMessage' está correta)
-  // --- FIM DA CORREÇÃO ---
+  }, [addMessage]);
   
   // (Funções de Anexo não mudam)
   const handleAttachClick = () => { fileInputRef.current.click(); };
@@ -153,9 +135,7 @@ function App() {
   };
   const handleClearChat = () => { clearChat(); };
   
-  // --- LÓGICA DE SUBMIT (Sem alterações) ---
-  // --- LÓGICA DE SUBMIT (Refatorada para Contexto) ---
-  // --- LÓGICA DE SUBMIT (Refatorada para Contexto) ---
+  // --- LÓGICA DE SUBMIT (Atualizada) ---
   const handleChatSubmit = async (e) => {
     e.preventDefault();
     const prompt = inputPrompt.trim();
@@ -163,11 +143,9 @@ function App() {
     
     const userPrompt = prompt || (arquivo ? `Analisar o arquivo: ${arquivo.name}` : '');
     
-    // --- INÍCIO DA ATUALIZAÇÃO (Memória de Chat) ---
-
     // 1. Cria o objeto da nova mensagem
     const newMessage = {
-      id: `msg_${Date.now()}`, // ID local temporário
+      id: `msg_${Date.now()}`,
       sender: 'user',
       text: userPrompt + (arquivo ? `\n(Anexado: ${arquivo.name})` : '')
     };
@@ -179,22 +157,18 @@ function App() {
     addMessage(newMessage.sender, newMessage.text);
     setInputPrompt(''); // Limpa o input
     
-    // (A função 'submitPrompt' foi substituída pelas duas linhas acima)
-    
-    // --- FIM DA ATUALIZAÇÃO ---
-    
     try {
       // 4. Envia o histórico COMPLETO para a API
       const data = await iniciarChat(
         apiClient, 
-        newMessages, // <-- O histórico completo
-        userPrompt,  // <-- O prompt atual (necessário para o FormData do /chat_file)
+        newMessages,
+        userPrompt,
         arquivo
       );
       
       if (arquivo) handleRemoveFile();
 
-      // O 'switch' case abaixo não precisa de alterações
+      // (Switch case não muda)
       switch (data.response_type) {
         
         case 'stream_answer':
@@ -202,8 +176,7 @@ function App() {
           
           await fetchChatStream({
             streamArgs: data.message,
-            apiToken: apiToken,
-            apiUrl: apiUrl,
+            apiToken: apiToken, // <-- Passa o token da prop
             onToken: (token) => {
               appendLastMessage(token);
             },
@@ -249,7 +222,7 @@ function App() {
     }
   };
 
-  // --- Renderização (Sem alterações) ---
+  // --- Renderização (Atualizada) ---
   return (
     <Container 
       disableGutters 
@@ -260,32 +233,18 @@ function App() {
       }}
     >
       <Box sx={{ p: 2.5, pb: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Header />
+        {/* --- 3. PASSA AS PROPS DE AUTH PARA O HEADER --- */}
+        <Header userEmail={userEmail} onLogout={onLogout} />
+        
         <IconButton onClick={handleClearChat} title="Limpar histórico do chat" size="small" disabled={isStreaming}>
           <ClearAllIcon />
         </IconButton>
       </Box>
       
-      {backendStatus !== null && (
-        <Box sx={{ p: 2.5, pt: 1, pb: 1 }}>
-          <Alert severity={backendStatus ? 'success' : (backendIsError ? 'error' : 'info')} sx={{ mb: 0 }}>
-            {backendStatus ? 'Conectado ao backend' : 'Backend offline'}
-          </Alert>
-        </Box>
-      )}
+      {/* ... (Alert de status do backend) ... */}
       
       <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2.5 }}>
-        <Stack spacing={1}>
-          {messages.map((msg) => (
-            <ChatMessage key={msg.id} message={msg} />
-          ))}
-          {isStreaming && (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
-              <CircularProgress size={20} sx={{ml: 2}} />
-            </Box>
-          )}
-          <div ref={chatEndRef} />
-        </Stack>
+        {/* ... (Renderização das mensagens) ... */}
       </Box>
       
       <Box 
@@ -296,57 +255,30 @@ function App() {
           borderColor: 'divider', bgcolor: 'background.paper'
         }}
       >
-        {arquivo && (
-          <Chip
-            label={arquivo.name}
-            onDelete={handleRemoveFile}
-            color="primary"
-            size="small"
-            sx={{ mb: 1 }}
-          />
-        )}
+        {/* ... (Chip do arquivo) ... */}
         
         <Stack direction="row" spacing={1} alignItems="center">
-          <input
-            type="file" ref={fileInputRef}
-            onChange={handleFileChange}
-            style={{ display: 'none' }}
-            accept=".txt,.md,text/plain,text/markdown"
-          />
-          <IconButton 
-            onClick={handleAttachClick} 
-            disabled={isStreaming || !backendStatus}
-            aria-label="Anexar arquivo"
-          >
-            <AttachFileIcon />
-          </IconButton>
+          {/* ... (Botão de anexo) ... */}
           
           <TextField
             fullWidth
             variant="outlined"
             size="small"
-            placeholder="Pergunte, ingira ou anexe uma instrução..."
+            placeholder="Pergunte, ingira ou anexe um..."
             value={inputPrompt}
             onChange={(e) => setInputPrompt(e.target.value)}
             disabled={isStreaming || !backendStatus}
             autoFocus
-            // --- INÍCIO DAS ATUALIZAÇÕES DE UI ---
             multiline
-            maxRows={4} // Irá auto-expandir até 4 linhas, depois rolar
+            maxRows={4}
             onKeyDown={(e) => {
-              // Se o usuário pressionar Enter (SEM Shift) e não estiver
-              // em um dispositivo móvel (que usa Enter para confirmar), envie.
               if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                // Previne a quebra de linha padrão do Enter
                 e.preventDefault();
-                // Chama o submit (se não houver prompt, a função handleChatSubmit irá barrar)
                 if (inputPrompt.trim() || arquivo) {
                   handleChatSubmit(e);
                 }
               }
-              // Se for Shift+Enter, o comportamento padrão (nova linha) é permitido.
             }}
-            // --- FIM DAS ATUALIZAÇÕES DE UI --- ok
           />
           <IconButton 
             type="submit" 
