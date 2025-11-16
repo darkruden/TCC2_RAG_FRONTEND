@@ -1,99 +1,32 @@
 // CÓDIGO COMPLETO PARA: src/services/api.js
-// (Atualizado para apontar para o app de testes do Heroku)
+// (Refatorado para React Query - Funções puras)
 
 import axios from 'axios';
 
-// --- FUNÇÃO HELPER DE CONFIGURAÇÃO (ATUALIZADA) ---
-export async function getConfig() {
-  if (window.chrome && window.chrome.storage) {
-    const { apiUrl, apiToken } = await chrome.storage.local.get(['apiUrl', 'apiToken']);
-    return {
-      // --- MUDANÇA AQUI ---
-      apiUrl: apiUrl || 'https://meu-tcc-testes-041c1dd46d1d.herokuapp.com',
-      apiToken: apiToken || 'testebrabotoken' // (Mantém o mesmo token de fallback)
-    };
-  } else {
-    // Fallback para dev local
-    return {
-      // --- E MUDANÇA AQUI ---
-      apiUrl: 'https://meu-tcc-testes-041c1dd46d1d.herokuapp.com',
-      apiToken: 'testebrabotoken'
-    };
-  }
-}
+// --- ATUALIZADO ---
+// A lógica de criar o 'client' e 'getConfig' foi movida para o App.js
+// onde o React Query será inicializado.
+// Estas agora são apenas funções 'puras' que o React Query usará.
 
-// --- CLIENTE AXIOS (NÃO MUDA) ---
-async function client() {
-  const { apiUrl, apiToken } = await getConfig();
-  return axios.create({
-    baseURL: apiUrl,
-    headers: {
-      'X-API-Key': apiToken
-    },
-    timeout: 60000 
-  });
-}
-
-// --- FUNÇÃO DE CHAT (TEXTO) ---
-export const enviarMensagemChat = async (prompt) => {
-  try {
-    const c = await client();
-    // (O endpoint é relativo, então /api/chat está correto)
-    const { data } = await c.post('/api/chat', { prompt: prompt });
-    return data;
-  } catch (error) {
-    console.error("Erro em enviarMensagemChat:", error);
-    throw error.response?.data || new Error(error.message);
-  }
-};
-
-// --- FUNÇÃO DE CHAT (ARQUIVO) ---
-export const enviarMensagemComArquivo = async (prompt, file) => {
-  try {
-    const c = await client();
-    
-    const formData = new FormData();
-    formData.append('prompt', prompt);
-    formData.append('arquivo', file);
-
-    // (O endpoint é relativo, /api/chat_file está correto)
-    const { data } = await c.post('/api/chat_file', formData, {
-      // Axios definirá o Content-Type
-    });
-    return data;
-  } catch (error) {
-    console.error("Erro em enviarMensagemComArquivo:", error);
-    throw error.response?.data || new Error(error.message);
-  }
-};
-
-
-// --- FUNÇÕES DE POLLING (NÃO MUDAM) ---
-export const getReportStatus = async (jobId) => {
-  try {
-    const c = await client();
-    const { data } = await c.get(`/api/relatorio/status/${jobId}`);
-    return data;
-  } catch (error) {
-    console.error("Erro em getReportStatus:", error);
-    throw error.response?.data || new Error(error.message);
-  }
-};
-
-export const getIngestStatus = async (jobId) => {
-  try {
-    const c = await client();
-    const { data } = await c.get(`/api/ingest/status/${jobId}`);
-    return data; 
-  } catch (error) {
-    console.error("Erro em getIngestStatus:", error);
-    throw error.response?.data || new Error(error.message);
-  }
-};
-
-// --- FUNÇÃO DE TESTE (NÃO MUDA) ---
-export const testarConexao = async () => {
-  const c = await client();
-  const { data } = await c.get('/health');
+export const testarConexao = async (apiClient) => {
+  // Recebe o cliente axios como argumento
+  const { data } = await apiClient.get('/health');
   return data;
 };
+
+export const enviarMensagemChat = async (apiClient, prompt) => {
+  const { data } = await apiClient.post('/api/chat', { prompt: prompt });
+  return data;
+};
+
+export const enviarMensagemComArquivo = async (apiClient, prompt, file) => {
+  const formData = new FormData();
+  formData.append('prompt', prompt);
+  formData.append('arquivo', file);
+
+  const { data } = await apiClient.post('/api/chat_file', formData);
+  return data;
+};
+
+// (Funções de Polling não são mais necessárias no frontend,
+//  o background.js cuida delas)
