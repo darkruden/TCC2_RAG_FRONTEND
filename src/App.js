@@ -1,6 +1,5 @@
 // CÓDIGO COMPLETO PARA: src/App.js
-// (Implementa Item 2: Persistência do Input de Chat)
-// (Remove lógica de download, que agora está no background.js)
+// (Ajustado para o Side Panel)
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
@@ -18,7 +17,6 @@ import {
     enviarMensagemChat,
     enviarMensagemComArquivo,
     testarConexao
-    // (Não precisamos mais de 'getConfig', 'getIngestStatus', 'getReportStatus')
 } from './services/api'; 
 
 // (Componente ChatMessage não muda)
@@ -28,7 +26,8 @@ function ChatMessage({ message }) {
     <Box sx={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', mb: 2 }}>
       <Paper 
         variant="outlined"
-        sx={{ p: 1.5, bgcolor: isUser ? 'primary.main' : 'background.paper',
+        sx={{
+          p: 1.5, bgcolor: isUser ? 'primary.main' : 'background.paper',
           color: isUser ? 'primary.contrastText' : 'text.primary',
           maxWidth: '80%', borderRadius: isUser ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
         }}
@@ -43,27 +42,24 @@ function ChatMessage({ message }) {
 
 function App() {
   const [backendStatus, setBackendStatus] = useState(null);
-  const [inputPrompt, setInputPrompt] = useState(''); // <-- Item 2
+  const [inputPrompt, setInputPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState([]);
   const [arquivo, setArquivo] = useState(null);
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
 
-  // --- ITEM 1 & 2: Hook para CARREGAR estado do storage ---
+  // --- Hook para CARREGAR estado ---
   useEffect(() => {
     if (window.chrome && chrome.storage) {
-      // Pede para o background resetar o badge de notificação
-      chrome.runtime.sendMessage({ action: 'popupAbertoResetarBadge' });
+      // (A mensagem 'popupAbertoResetarBadge' foi REMOVIDA)
       
-      // Carrega o histórico de chat E o input salvo
       chrome.storage.local.get(['chatMessages', 'inputPrompt'], (result) => {
         if (result.chatMessages && result.chatMessages.length > 0) {
           setMessages(result.chatMessages);
         } else {
           setMessages([{ id: '1', sender: 'bot', text: 'Olá! Como posso ajudar?' }]);
         }
-        // Restaura o texto que o usuário estava digitando
         if (result.inputPrompt) {
           setInputPrompt(result.inputPrompt);
         }
@@ -71,20 +67,19 @@ function App() {
     }
   }, []); // Roda apenas uma vez
 
-  // --- ITEM 1: Hook para SALVAR chat ---
+  // --- Hook para SALVAR chat ---
   useEffect(() => {
     if (window.chrome && chrome.storage && messages.length > 0) {
       chrome.storage.local.set({ chatMessages: messages });
     }
   }, [messages]);
 
-  // --- ITEM 2: Hook para SALVAR input ---
+  // --- Hook para SALVAR input ---
   useEffect(() => {
-    // Salva o rascunho do input
     if (window.chrome && chrome.storage) {
       chrome.storage.local.set({ inputPrompt: inputPrompt });
     }
-  }, [inputPrompt]); // Roda toda vez que o input muda
+  }, [inputPrompt]);
 
   // Hook para rolar o chat
   useEffect(() => {
@@ -103,19 +98,18 @@ function App() {
     })();
   }, []);
   
-  // --- ITEM 2: Hook para OUVIR o background script ---
+  // --- Hook para OUVIR o background script ---
+  // (Sem alterações, ele já escuta 'job_finished' e 'job_failed')
   useEffect(() => {
     const messageListener = (request, sender, sendResponse) => {
       console.log("App.js recebeu mensagem:", request);
       
       if (request.action === 'job_finished') {
-        // (A lógica de download foi REMOVIDA daqui)
         addMessage('bot', request.message);
       } else if (request.action === 'job_failed') {
         addMessage('bot', `❌ **Tarefa Falhou:** ${request.error}`);
       }
       
-      // Confirma o recebimento
       sendResponse({ success: true });
       return true;
     };
@@ -124,7 +118,7 @@ function App() {
     return () => {
       chrome.runtime.onMessage.removeListener(messageListener);
     };
-  }, []); // Roda apenas uma vez
+  }, []);
   
   const addMessage = (sender, text) => {
     setMessages(prev => [...prev, { id: Date.now().toString(), sender, text }]);
@@ -148,8 +142,7 @@ function App() {
   const handleClearChat = () => {
     const initialMessage = [{ id: '1', sender: 'bot', text: 'Olá! Como posso ajudar?' }];
     setMessages(initialMessage);
-    setInputPrompt(''); // Limpa o input
-    // Limpa o storage
+    setInputPrompt('');
     if (window.chrome && chrome.storage) {
       chrome.storage.local.set({ 
         chatMessages: initialMessage,
@@ -158,22 +151,18 @@ function App() {
     }
   };
 
-  // --- LÓGICA DE SUBMIT ATUALIZADA (Item 2) ---
+  // --- LÓGICA DE SUBMIT (Sem alterações) ---
   const handleChatSubmit = async (e) => {
     e.preventDefault();
     const prompt = inputPrompt.trim();
     if (isLoading || (!prompt && !arquivo)) return;
     
     const userPrompt = prompt || (arquivo ? `Analisar o arquivo: ${arquivo.name}` : '');
-    
     addMessage('user', userPrompt + (arquivo ? `\n(Anexado: ${arquivo.name})` : ''));
-    
-    // --- ITEM 2: Limpa o input E O CACHE do input ---
     setInputPrompt(''); 
     if (window.chrome && chrome.storage) {
       chrome.storage.local.set({ inputPrompt: '' });
     }
-    // --- Fim da mudança ---
     
     setIsLoading(true);
 
@@ -193,7 +182,6 @@ function App() {
           break;
         case 'job_enqueued':
           addMessage('bot', data.message);
-          // Avisa o background para começar o polling
           const jobType = data.message.includes('ingestão') ? 'ingest' : 'report';
           chrome.runtime.sendMessage({
             action: 'startPolling',
@@ -215,13 +203,12 @@ function App() {
     }
   };
 
-  // --- POLLING REMOVIDO DAQUI ---
-
   return (
+    // --- MUDANÇA DE LAYOUT ---
     <Container 
       disableGutters 
       sx={{ 
-        height: '600px',
+        height: '100vh', // <-- Ocupa 100% da altura do painel
         minWidth: '380px',
         width: '100%',
         display: 'flex',
