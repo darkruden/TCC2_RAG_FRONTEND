@@ -330,6 +330,23 @@ function App() {
             onChange={(e) => setInputPrompt(e.target.value)}
             disabled={isStreaming || !backendStatus}
             autoFocus
+            // --- INÍCIO DAS ATUALIZAÇÕES DE UI ---
+            multiline
+            maxRows={4} // Irá auto-expandir até 4 linhas, depois rolar
+            onKeyDown={(e) => {
+              // Se o usuário pressionar Enter (SEM Shift) e não estiver
+              // em um dispositivo móvel (que usa Enter para confirmar), envie.
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                // Previne a quebra de linha padrão do Enter
+                e.preventDefault();
+                // Chama o submit (se não houver prompt, a função handleChatSubmit irá barrar)
+                if (inputPrompt.trim() || arquivo) {
+                  handleChatSubmit(e);
+                }
+              }
+              // Se for Shift+Enter, o comportamento padrão (nova linha) é permitido.
+            }}
+            // --- FIM DAS ATUALIZAÇÕES DE UI --- ok
           />
           <IconButton 
             type="submit" 
