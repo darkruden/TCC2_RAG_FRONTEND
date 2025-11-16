@@ -1,5 +1,5 @@
 // CÓDIGO COMPLETO PARA: public/background.js
-// (Implementa Item 2: Polling e Download no Background)
+// (Atualizado para a API do Side Panel)
 
 // --- Constantes ---
 const POLLING_INTERVAL_MS = 5000;
@@ -8,9 +8,19 @@ const POLLING_INTERVAL_MS = 5000;
 let loadingInterval = null;
 const loadingFrames = ['-', '\\', '|', '/'];
 let frameIndex = 0;
-
-// --- Estado do Polling ---
 let pollingJobs = {};
+
+// =================================================================
+//    LÓGICA DO SIDE PANEL (NOVO)
+// =================================================================
+// Faz com que o ícone da extensão abra o painel lateral
+try {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+} catch (e) {
+  console.warn("Erro ao definir o comportamento do Side Panel (provavelmente recarregamento):", e);
+}
+// =================================================================
+
 
 // =================================================================
 //    LÓGICA DE AUTENTICAÇÃO
@@ -28,11 +38,6 @@ async function getConfigForBackground() {
 }
 
 // --- Funções de Animação (Badge) ---
-// (Sem alterações)
-function startLoadingAnimation() { /* ... */ }
-function stopLoadingAnimation(status) { /* ... */ }
-function resetBadge() { /* ... */ }
-// (Funções de animação omitidas por brevidade, mas são as mesmas de antes)
 function startLoadingAnimation() {
   if (loadingInterval) return;
   frameIndex = 0;
@@ -72,49 +77,36 @@ function showNotification(title, message, jobId) {
   });
 }
 
-// --- NOVA FUNÇÃO DE DOWNLOAD (Item 1: Correção do Bug) ---
-/**
- * Inicia o download usando a API chrome.downloads
- */
 async function startDownload(filename) {
   try {
     const config = await getConfigForBackground();
     const downloadUrl = `${config.apiUrl}/api/relatorio/download/${filename}`;
-
     console.log(`BG: Iniciando download de ${downloadUrl}`);
     
     chrome.downloads.download({
       url: downloadUrl,
-      filename: filename, // Sugere o nome do arquivo
+      filename: filename,
       headers: [
-        // Envia o token de autenticação
         { name: 'X-API-Key', value: config.apiToken }
       ]
     }, (downloadId) => {
       if (chrome.runtime.lastError) {
         console.error("Erro ao iniciar download:", chrome.runtime.lastError.message);
-        // Informa o popup do erro
         chrome.runtime.sendMessage({
           action: 'job_failed',
-          jobId: filename, // Usa o filename como ID
+          jobId: filename,
           error: `Falha ao iniciar download: ${chrome.runtime.lastError.message}`
         });
         showNotification(`❌ Download Falhou`, `Não foi possível iniciar o download: ${chrome.runtime.lastError.message}`, filename);
       } else {
         console.log(`BG: Download iniciado com ID: ${downloadId}`);
-        // (A notificação de sucesso agora vem do próprio download)
       }
     });
-
   } catch (err) {
     console.error("Erro na função startDownload:", err);
   }
 }
 
-
-/**
- * Função GENÉRICA que chama a API de status.
- */
 async function pollJobStatus(jobId, type) {
   if (!jobId || !type) return;
 
@@ -143,41 +135,30 @@ async function pollJobStatus(jobId, type) {
       
       const resultData = statusData.result;
       
-      // --- LÓGICA DE SUCESSO ATUALIZADA ---
       if (type === 'ingest') {
         const successMessage = resultData.mensagem || resultData || "Tarefa concluída!";
         chrome.runtime.sendMessage({ action: 'job_finished', jobId, type, message: successMessage });
         showNotification(`✅ ${jobTypeDisplay} Concluída`, successMessage, jobId);
       
       } else if (type === 'report') {
-        // O 'resultData' é o NOME DO ARQUIVO (ex: "relatorio.html")
         const filename = resultData;
-        
-        // 1. Informa o popup (App.js) que o download vai começar
         chrome.runtime.sendMessage({
           action: 'job_finished',
           jobId: jobId,
           type: type,
           message: `Relatório pronto. Iniciando download de \`${filename}\`...`
         });
-        
-        // 2. Inicia o download (a correção do bug)
         startDownload(filename);
-        
-        // (A notificação de "sucesso" será a do próprio download)
       }
 
     } else if (statusData.status === 'failed') {
       console.log(`Polling: ${jobTypeDisplay} ${jobId} falhou.`);
       stopPolling(jobId);
       stopLoadingAnimation('fail');
-      
       const errorMessage = statusData.error || "A tarefa falhou no backend.";
-      
       chrome.runtime.sendMessage({ action: 'job_failed', jobId, type, error: errorMessage });
       showNotification(`❌ ${jobTypeDisplay} Falhou`, errorMessage, jobId);
     }
-
   } catch (err) {
     console.error(`Polling: Erro de rede ou autenticação para ${jobId}.`, err);
     stopPolling(jobId);
@@ -185,8 +166,6 @@ async function pollJobStatus(jobId, type) {
   }
 }
 
-// (Funções startPolling, stopPolling, e os listeners
-//  permanecem os mesmos da etapa anterior)
 function startPolling(jobId, type) {
   if (pollingJobs[jobId]) return;
   console.log(`BG: Iniciando polling para ${jobId} (Tipo: ${type})`);
@@ -210,7 +189,9 @@ function stopPolling(jobId) {
   }
 }
 
+// --- Listeners de Mensagem (Simplificado) ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  
   if (request.action === 'startPolling') {
     if (request.jobId && request.type) {
       startPolling(request.jobId, request.type);
@@ -219,14 +200,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: false, error: "jobId ou type faltando." });
     }
     return true;
-  } else if (request.action === 'popupAbertoResetarBadge') {
-    console.log('BG: Popup aberto, resetando badge.');
-    resetBadge();
-    sendResponse({ success: true });
-    return true;
+  
+  // --- REMOVIDO ---
+  // A lógica 'popupAbertoResetarBadge' foi removida.
   }
 });
 
+// --- LÓGICA DE REINICIALIZAÇÃO (Sem alterações) ---
 function resumePollingOnStartup() {
   resetBadge();
   chrome.storage.local.get(['activePollingJobs'], (result) => {
@@ -247,4 +227,4 @@ function resumePollingOnStartup() {
 chrome.runtime.onStartup.addListener(resumePollingOnStartup);
 resumePollingOnStartup();
 
-console.log('GitHub RAG Extension - Background script inicializado');
+console.log('GitHub RAG Extension - Background script (Side Panel) inicializado');
