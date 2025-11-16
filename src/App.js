@@ -1,5 +1,5 @@
 // CÓDIGO COMPLETO PARA: src/App.js
-// (Refatorado para Streaming)
+// (Corrigido com uma "guarda" para a API chrome.runtime)
 
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { 
@@ -13,18 +13,17 @@ import {
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import Header from './components/Header';
-import { useQuery } from '@tanstack/react-query'; // (useMutation não é mais usado)
+import { useQuery } from '@tanstack/react-query';
 import { useChatStore } from './store/chatStore'; 
 import axios from 'axios';
 
 import { 
-    iniciarChat,      // <-- NOVA API
-    fetchChatStream,  // <-- NOVA API
+    iniciarChat,
+    fetchChatStream,
     testarConexao
 } from './services/api'; 
 
 // (Componente ChatMessage não muda)
-function ChatMessage({ message }) { /* ... (código idêntico) ... */ }
 function ChatMessage({ message }) {
   const isUser = message.sender === 'user';
   return (
@@ -51,17 +50,15 @@ function App() {
   // 1. Hooks de Gerenciamento de Estado (Zustand)
   // ==================================================================
   
-  // (O estado 'isLoading' local foi removido, agora usamos 'isStreaming' do store)
   const {
     messages, addMessage, inputPrompt, setInputPrompt,
     arquivo, setArquivo, clearChat, submitPrompt,
-    isStreaming, startBotMessage, appendLastMessage, finishBotMessage // <-- Novas ações
+    isStreaming, startBotMessage, appendLastMessage, finishBotMessage
   } = useChatStore((state) => state);
 
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
   
-  // (Estado local para o token, necessário para o 'useMemo')
   const [apiToken, setApiToken] = useState('testebrabotoken');
   const apiUrl = 'https://meu-tcc-testes-041c1dd46d1d.herokuapp.com';
 
@@ -69,9 +66,9 @@ function App() {
   // 2. Configuração Centralizada da API
   // ==================================================================
   
-  // (Lê o token do storage ao carregar)
   useEffect(() => {
-    if (window.chrome && chrome.storage) {
+    // (Este 'if' já estava correto, protegendo contra 'chrome.storage' undefined)
+    if (window.chrome && chrome.storage && chrome.storage.local) {
       chrome.storage.local.get(['apiToken'], (result) => {
         if (result.apiToken) {
           setApiToken(result.apiToken);
@@ -86,20 +83,18 @@ function App() {
       headers: { 'X-API-Key': apiToken },
       timeout: 60000 
     });
-  }, [apiUrl, apiToken]); // Recria se o token mudar
+  }, [apiUrl, apiToken]);
 
   // ==================================================================
   // 3. Hooks de Estado do Servidor (React Query)
   // ==================================================================
 
   const { data: backendStatus, isError: backendIsError } = useQuery({
-    queryKey: ['backendStatus', apiClient], // (apiClient é uma dependência)
+    queryKey: ['backendStatus', apiClient],
     queryFn: () => testarConexao(apiClient),
     select: (data) => data.status === 'online',
     retry: 1,
   });
-
-  // (O 'useMutation' foi REMOVIDO)
   
   // ==================================================================
   // 4. Hooks de UI (Efeitos e Listeners)
@@ -109,30 +104,56 @@ function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // --- INÍCIO DA CORREÇÃO ---
+  // (O erro 'onMessage' undefined acontece aqui)
   useEffect(() => {
-    const messageListener = (request, sender, sendResponse) => {
-      // (Ouve apenas jobs, o chat stream é tratado no submit)
-      if (request.action === 'job_finished') {
-        addMessage('bot', request.message);
-      } else if (request.action === 'job_failed') {
-        addMessage('bot', `❌ **Tarefa Falhou:** ${request.error}`);
-      }
-      sendResponse({ success: true });
-      return true;
-    };
-    chrome.runtime.onMessage.addListener(messageListener);
-    return () => {
-      chrome.runtime.onMessage.removeListener(messageListener);
-    };
-  }, [addMessage]);
+    // Adicionamos esta verificação:
+    // Só tenta escutar mensagens se a API 'chrome.runtime' existir.
+    if (window.chrome && chrome.runtime && chrome.runtime.onMessage) {
+      
+      const messageListener = (request, sender, sendResponse) => {
+        console.log("App.js recebeu mensagem:", request);
+        
+        if (request.action === 'job_finished') {
+          addMessage('bot', request.message);
+        } else if (request.action === 'job_failed') {
+          addMessage('bot', `❌ **Tarefa Falhou:** ${request.error}`);
+        }
+        
+        sendResponse({ success: true });
+        return true;
+      };
+
+      chrome.runtime.onMessage.addListener(messageListener);
+      
+      // Retorna a função de limpeza
+      return () => {
+        chrome.runtime.onMessage.removeListener(messageListener);
+      };
+
+    } else {
+      // Se estiver em localhost, apenas avisa no console
+      console.warn("API chrome.runtime.onMessage não encontrada (rodando em localhost?). O polling não será recebido aqui.");
+    }
+  }, [addMessage]); // (A dependência 'addMessage' está correta)
+  // --- FIM DA CORREÇÃO ---
   
   // (Funções de Anexo não mudam)
   const handleAttachClick = () => { fileInputRef.current.click(); };
-  const handleFileChange = (e) => { /* ... (código idêntico) ... */ };
-  const handleRemoveFile = () => { /* ... (código idêntico) ... */ };
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) { addMessage('bot', '❌ **Erro:** O arquivo é muito grande (500KB).'); return; }
+    if (!file.type.startsWith('text/')) { addMessage('bot', '❌ **Erro:** Tipo de arquivo inválido.'); return; }
+    setArquivo(file);
+  };
+  const handleRemoveFile = () => {
+    setArquivo(null);
+    if (fileInputRef.current) fileInputRef.current.value = null;
+  };
   const handleClearChat = () => { clearChat(); };
   
-  // --- LÓGICA DE SUBMIT (Totalmente Refatorada para Streaming) ---
+  // --- LÓGICA DE SUBMIT (Sem alterações) ---
   const handleChatSubmit = async (e) => {
     e.preventDefault();
     const prompt = inputPrompt.trim();
@@ -140,32 +161,27 @@ function App() {
     
     const userPrompt = prompt || (arquivo ? `Analisar o arquivo: ${arquivo.name}` : '');
     
-    // 1. Atualiza o estado do chat no Zustand
     submitPrompt(userPrompt + (arquivo ? `\n(Anexado: ${arquivo.name})` : ''));
     
     try {
-      // 2. Chama o Roteador de Intenção (NÃO-streaming)
       const data = await iniciarChat(apiClient, userPrompt, arquivo);
       
-      // 3. Limpa o arquivo (se houver)
       if (arquivo) handleRemoveFile();
 
-      // 4. Roteia a resposta
       switch (data.response_type) {
         
         case 'stream_answer':
-          // --- INÍCIO DO STREAMING ---
-          startBotMessage(); // Adiciona uma mensagem de bot vazia
+          startBotMessage();
           
           await fetchChatStream({
-            streamArgs: data.message, // O JSON de args (repo, prompt)
+            streamArgs: data.message,
             apiToken: apiToken,
             apiUrl: apiUrl,
             onToken: (token) => {
-              appendLastMessage(token); // Anexa o token ao store
+              appendLastMessage(token);
             },
             onComplete: () => {
-              finishBotMessage(); // Para o indicador de "digitando"
+              finishBotMessage();
             },
             onError: (err) => {
               appendLastMessage(`\n\n**Erro no stream:** ${err.message}`);
@@ -173,7 +189,6 @@ function App() {
             }
           });
           break;
-          // --- FIM DO STREAMING ---
           
         case 'answer':
         case 'clarification':
@@ -182,13 +197,19 @@ function App() {
           
         case 'job_enqueued':
           addMessage('bot', data.message);
-          // Avisa o background.js para iniciar o polling
-          const jobType = data.message.includes('ingestão') ? 'ingest' : 'report';
-          chrome.runtime.sendMessage({
-            action: 'startPolling',
-            jobId: data.job_id,
-            type: jobType
-          });
+          
+          // Esta verificação também é importante:
+          // Só tenta enviar a mensagem se a API existir
+          if (window.chrome && chrome.runtime && chrome.runtime.sendMessage) {
+            const jobType = data.message.includes('ingestão') ? 'ingest' : 'report';
+            chrome.runtime.sendMessage({
+              action: 'startPolling',
+              jobId: data.job_id,
+              type: jobType
+            });
+          } else {
+            console.warn("Não é possível iniciar o polling (API do Chrome não encontrada).");
+          }
           break;
           
         default:
@@ -203,6 +224,7 @@ function App() {
     }
   };
 
+  // --- Renderização (Sem alterações) ---
   return (
     <Container 
       disableGutters 
@@ -232,7 +254,6 @@ function App() {
           {messages.map((msg) => (
             <ChatMessage key={msg.id} message={msg} />
           ))}
-          {/* 'isLoading' agora é 'isStreaming' do store */}
           {isStreaming && (
             <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
               <CircularProgress size={20} sx={{ml: 2}} />
