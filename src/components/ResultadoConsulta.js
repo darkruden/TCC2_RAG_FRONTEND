@@ -22,7 +22,7 @@ const ResultadoConsulta = ({ resultado }) => {
       case 'issue':
         return <BugReportIcon sx={{ fontSize: '1.0rem', mr: 0.5 }} />;
       case 'pull_request':
-        return <PullRequestIcon sx={{ fontSize: '1.0rem', mr: 0.5 }} />;
+        return <PullMergeIcon sx={{ fontSize: '1.0rem', mr: 0.5 }} />;
       case 'commit':
         return <CommitIcon sx={{ fontSize: '1.0rem', mr: 0.5 }} />;
       default:

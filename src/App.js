@@ -1,5 +1,4 @@
-// CÓDIGO COMPLETO PARA: src/App.js
-// (Versão final com Job Active Chip, dicas e lógica de fluxo corrigida)
+// CÓDIGO COMPLETO E CORRIGIDO PARA: src/App.js
 
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { 
@@ -9,7 +8,7 @@ import {
 import { 
     Send as SendIcon, 
     AttachFile as AttachFileIcon,
-    ClearAll as ClearAllIcon
+    ClearAll as ClearAllIcon 
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown'; 
 import Header from './components/Header';
@@ -47,10 +46,6 @@ function ChatMessage({ message }) {
 
 function App({ apiToken, userEmail, onLogout }) {
   
-  // ==================================================================
-  // 1. Hooks de Gerenciamento de Estado (Zustand)
-  // ==================================================================
-  
   const {
     messages, addMessage, inputPrompt, setInputPrompt,
     arquivo, setArquivo, clearChat,
@@ -65,17 +60,9 @@ function App({ apiToken, userEmail, onLogout }) {
   
   const isInputDisabled = isStreaming || !apiToken || activeJob !== null;
   
-  // ==================================================================
-  // 2. Configuração Centralizada da API
-  // ==================================================================
-  
   const apiClient = useMemo(() => {
     return createApiClient(apiToken); 
   }, [apiToken]);
-
-  // ==================================================================
-  // 3. Hooks de Estado do Servidor (React Query)
-  // ==================================================================
 
   const { data: backendStatus, isError: backendIsError } = useQuery({
     queryKey: ['backendStatus', apiClient], 
@@ -85,10 +72,6 @@ function App({ apiToken, userEmail, onLogout }) {
     enabled: !!apiToken
   });
   
-  // ==================================================================
-  // 4. Hooks de UI (Efeitos e Listeners)
-  // ==================================================================
-
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -124,7 +107,6 @@ function App({ apiToken, userEmail, onLogout }) {
     }
   }, [addMessage, activeJob]);
   
-  // (Funções de Anexo)
   const handleAttachClick = () => { 
     if (isInputDisabled) return;
     fileInputRef.current.click(); 
@@ -140,12 +122,16 @@ function App({ apiToken, userEmail, onLogout }) {
     setArquivo(null);
     if (fileInputRef.current) fileInputRef.current.value = null;
   };
+  
   const handleClearChat = () => { 
-    if (isInputDisabled) return;
+    if (isInputDisabled) {
+      addMessage('bot', "Não posso limpar o chat enquanto um job estiver ativo. Aguarde.");
+      return;
+    }
     clearChat(); 
   };
   
-  // --- LÓGICA DE SUBMIT ---
+  // --- LÓGICA DE SUBMIT (sem alterações) ---
   const handleChatSubmit = async (e) => {
     e.preventDefault();
     const prompt = inputPrompt.trim();
@@ -244,16 +230,12 @@ function App({ apiToken, userEmail, onLogout }) {
           userEmail={userEmail} 
           onLogout={onLogout} 
           onOpenSchedules={() => setSchedulesModalOpen(true)}
+          onClearChat={handleClearChat} // <-- NOVO: Passando a função de limpar chat
         />
-        
-        <Tooltip title="Limpar histórico do chat">
-          <IconButton onClick={handleClearChat} size="small" disabled={isInputDisabled}>
-            <ClearAllIcon />
-          </IconButton>
-        </Tooltip>
+        {/* O ÍCONE ClearAll FOI REMOVIDO DAQUI */}
       </Box>
       
-      {backendStatus === false && ( // Usa estritamente 'false' aqui
+      {backendStatus === false && (
          <Alert severity="error" sx={{ m: 2.5, mt: 0 }}>
            Não foi possível conectar ao backend.
          </Alert>
