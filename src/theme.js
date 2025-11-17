@@ -1,5 +1,6 @@
-// src/theme.js
-import { extendTheme } from '@mui/material/styles';
+// CÓDIGO COMPLETO PARA: src/theme.js
+
+import { extendTheme } from '@mui/material/styles'; // <-- CORRIGIDO
 
 // Define as cores do seu tema para os modos light e dark
 const theme = extendTheme({
