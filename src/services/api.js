@@ -74,6 +74,39 @@ export const iniciarChat = async (apiClient, messages, prompt, file) => {
   }
 };
 
+// --- INÍCIO DA ADIÇÃO ---
+
+/**
+ * Busca os agendamentos ativos do usuário.
+ * @param {axios.AxiosInstance} apiClient O cliente axios autenticado
+ * @returns {Promise<Array<object>>} Lista de agendamentos
+ */
+export const getSchedules = async (apiClient) => {
+  try {
+    const { data } = await apiClient.get('/api/schedules');
+    return data;
+  } catch (error) {
+    console.error("Erro ao buscar agendamentos:", error);
+    throw error.response?.data || new Error(error.message);
+  }
+};
+
+/**
+ * Deleta um agendamento específico.
+ * @param {axios.AxiosInstance} apiClient O cliente axios autenticado
+ * @param {string} scheduleId O ID do agendamento a ser deletado
+ * @returns {Promise<void>}
+ */
+export const deleteSchedule = async (apiClient, scheduleId) => {
+  try {
+    await apiClient.delete(`/api/schedules/${scheduleId}`);
+  } catch (error) {
+    console.error("Erro ao deletar agendamento:", error);
+    throw error.response?.data || new Error(error.message);
+  }
+};
+// --- FIM DA ADIÇÃO ---
+
 /**
  * Conecta-se ao endpoint de streaming.
  */
