@@ -1,22 +1,29 @@
-// --- 1. Importações ---
-import React, { useEffect, useRef, useMemo, useState } from 'react'; // <-- ADICIONAR useState
+// CÓDIGO COMPLETO PARA: src/App.js
+// (Com todas as importações e correções de renderização)
+
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { 
   Container, Box, Alert, Stack, TextField, IconButton,
   CircularProgress, Paper, Typography, Chip
 } from '@mui/material';
-// ... (outras importações)
+import { 
+    Send as SendIcon, 
+    AttachFile as AttachFileIcon,
+    ClearAll as ClearAllIcon
+} from '@mui/icons-material'; // <-- Importação do ClearAllIcon e SendIcon
+import ReactMarkdown from 'react-markdown'; // <-- Importação do ReactMarkdown
 import Header from './components/Header';
 import { useQuery } from '@tanstack/react-query';
 import { useChatStore } from './store/chatStore'; 
-// (axios não é mais necessário aqui, está no api.js)
+// import axios from 'axios'; // Não é mais necessário aqui
 
 import { 
     iniciarChat,
     fetchChatStream,
     testarConexao,
-    createApiClient
+    createApiClient 
 } from './services/api'; 
-import AgendamentosModal from './components/AgendamentosModal'; // <-- ADICIONAR IMPORT
+import AgendamentosModal from './components/AgendamentosModal';
 
 // (Componente ChatMessage não muda)
 function ChatMessage({ message }) {
@@ -41,9 +48,7 @@ function ChatMessage({ message }) {
 
 // --- 1. ACEITAR PROPS DE AUTH ---
 function App({ apiToken, userEmail, onLogout }) {
-  // Estado para controlar a abertura do modal
-  const [schedulesModalOpen, setSchedulesModalOpen] = useState(false);
-  // --- FIM DA ADIÇÃO ---
+  
   // ==================================================================
   // 1. Hooks de Gerenciamento de Estado (Zustand)
   // ==================================================================
@@ -52,20 +57,18 @@ function App({ apiToken, userEmail, onLogout }) {
     messages, addMessage, inputPrompt, setInputPrompt,
     arquivo, setArquivo, clearChat,
     isStreaming, startBotMessage, appendLastMessage, finishBotMessage
-  } = useChatStore((state) => state); // Removido 'submitPrompt'
+  } = useChatStore((state) => state);
+
+  // --- Estado do Modal de Agendamentos ---
+  const [schedulesModalOpen, setSchedulesModalOpen] = useState(false);
 
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
   
-  // (Removido o useState para apiToken e apiUrl)
-
   // ==================================================================
   // 2. Configuração Centralizada da API
   // ==================================================================
-
-  // (Removido o useEffect que lia do chrome.storage, o AppWrapper faz isso)
-
-  // --- 2. USA O API TOKEN DA PROP ---
+  
   const apiClient = useMemo(() => {
     return createApiClient(apiToken); // Cria o cliente com o token recebido
   }, [apiToken]);
@@ -75,7 +78,7 @@ function App({ apiToken, userEmail, onLogout }) {
   // ==================================================================
 
   const { data: backendStatus, isError: backendIsError } = useQuery({
-    queryKey: ['backendStatus', apiClient], // A query depende do apiClient (que depende do token)
+    queryKey: ['backendStatus', apiClient], 
     queryFn: () => testarConexao(apiClient),
     select: (data) => data.status === 'online',
     retry: 1,
@@ -112,11 +115,11 @@ function App({ apiToken, userEmail, onLogout }) {
       };
 
     } else {
-      console.warn("API chrome.runtime.onMessage não encontrada (rodando em localhost?). O polling não será recebido aqui.");
+      console.warn("API chrome.runtime.onMessage não encontrada.");
     }
   }, [addMessage]);
   
-  // (Funções de Anexo não mudam)
+  // (Funções de Anexo)
   const handleAttachClick = () => { fileInputRef.current.click(); };
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -131,7 +134,7 @@ function App({ apiToken, userEmail, onLogout }) {
   };
   const handleClearChat = () => { clearChat(); };
   
-  // --- LÓGICA DE SUBMIT (Atualizada) ---
+  // --- LÓGICA DE SUBMIT ---
   const handleChatSubmit = async (e) => {
     e.preventDefault();
     const prompt = inputPrompt.trim();
@@ -139,22 +142,18 @@ function App({ apiToken, userEmail, onLogout }) {
     
     const userPrompt = prompt || (arquivo ? `Analisar o arquivo: ${arquivo.name}` : '');
     
-    // 1. Cria o objeto da nova mensagem
     const newMessage = {
       id: `msg_${Date.now()}`,
       sender: 'user',
       text: userPrompt + (arquivo ? `\n(Anexado: ${arquivo.name})` : '')
     };
     
-    // 2. Cria a lista de mensagens *completa* que será enviada
     const newMessages = [...messages, newMessage];
 
-    // 3. Atualiza a UI imediatamente (usando as funções do Zustand)
     addMessage(newMessage.sender, newMessage.text);
-    setInputPrompt(''); // Limpa o input
+    setInputPrompt(''); 
     
     try {
-      // 4. Envia o histórico COMPLETO para a API
       const data = await iniciarChat(
         apiClient, 
         newMessages,
@@ -164,7 +163,6 @@ function App({ apiToken, userEmail, onLogout }) {
       
       if (arquivo) handleRemoveFile();
 
-      // (Switch case não muda)
       switch (data.response_type) {
         
         case 'stream_answer':
@@ -172,7 +170,7 @@ function App({ apiToken, userEmail, onLogout }) {
           
           await fetchChatStream({
             streamArgs: data.message,
-            apiToken: apiToken, // <-- Passa o token da prop
+            apiToken: apiToken,
             onToken: (token) => {
               appendLastMessage(token);
             },
@@ -218,7 +216,7 @@ function App({ apiToken, userEmail, onLogout }) {
     }
   };
 
-  // --- Renderização (Atualizada) ---
+  // --- Renderização ---
   return (
     <Container 
       disableGutters 
@@ -229,29 +227,33 @@ function App({ apiToken, userEmail, onLogout }) {
       }}
     >
       <Box sx={{ p: 2.5, pb: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        {/* --- INÍCIO DA ATUALIZAÇÃO (Passa o handler para o Header) --- */}
         <Header 
           userEmail={userEmail} 
           onLogout={onLogout} 
-          onOpenSchedules={() => setSchedulesModalOpen(true)} // <-- ADICIONADO
+          onOpenSchedules={() => setSchedulesModalOpen(true)}
         />
-        {/* --- FIM DA ATUALIZAÇÃO --- */}
         
         <IconButton onClick={handleClearChat} title="Limpar histórico do chat" size="small" disabled={isStreaming}>
           <ClearAllIcon />
         </IconButton>
       </Box>
       
-      {/* ... (Alert de status do backend) ... */}
+      {backendIsError && (
+         <Alert severity="error" sx={{ m: 2.5, mt: 0 }}>
+           Não foi possível conectar ao backend.
+         </Alert>
+      )}
       
       <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2.5 }}>
-        {/* --- INÍCIO DA CORREÇÃO --- */}
         {/* Renderiza o histórico de mensagens */}
         {messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />
         ))}
-        {/* --- FIM DA CORREÇÃO --- */}
-        {/* Div para rolar automaticamente para o final */}
+        {isStreaming && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
+            <CircularProgress size={20} sx={{ ml: 1.5 }} />
+          </Box>
+        )}
         <div ref={chatEndRef} />
       </Box>
       
@@ -263,10 +265,30 @@ function App({ apiToken, userEmail, onLogout }) {
           borderColor: 'divider', bgcolor: 'background.paper'
         }}
       >
-        {/* ... (Chip do arquivo) ... */}
+        {arquivo && (
+          <Chip
+            label={arquivo.name}
+            onDelete={handleRemoveFile}
+            color="primary"
+            size="small"
+            sx={{ mb: 1 }}
+          />
+        )}
         
         <Stack direction="row" spacing={1} alignItems="center">
-          {/* ... (Botão de anexo) ... */}
+          <input
+            type="file" ref={fileInputRef}
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+            accept=".txt,.md,text/plain,text/markdown"
+          />
+          <IconButton 
+            onClick={handleAttachClick} 
+            disabled={isStreaming || !backendStatus}
+            aria-label="Anexar arquivo"
+          >
+            <AttachFileIcon />
+          </IconButton>
           
           <TextField
             fullWidth
@@ -297,13 +319,13 @@ function App({ apiToken, userEmail, onLogout }) {
           </IconButton>
         </Stack>
       </Box>
-      {/* --- INÍCIO DA ADIÇÃO (Renderiza o Modal) --- */}
+      
       <AgendamentosModal 
         open={schedulesModalOpen}
         onClose={() => setSchedulesModalOpen(false)}
         apiClient={apiClient}
       />
-      {/* --- FIM DA ADIÇÃO --- */}
+      
     </Container> 
   );
 }
