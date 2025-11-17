@@ -73,8 +73,10 @@ function AppWrapper() {
   const [authError, setAuthError] = useState(null);
   
   // --- INÍCIO DA CORREÇÃO ---
+  // 2. Estado de hidratação do Zustand
   const [isHydrated, setIsHydrated] = useState(false);
 
+  // 3. Efeito para verificar o Auth
   useEffect(() => {
     const checkAuth = async () => {
       const { apiToken, userEmail } = await getStoredAuth();
@@ -87,18 +89,24 @@ function AppWrapper() {
     checkAuth();
   }, []);
 
+  // 4. Efeito para verificar a Hidratação do Zustand
   useEffect(() => {
-    // Espera o 'onFinishHydration' para saber que o chatStore carregou
+    // A persistência do Zustand é assíncrona.
+    // Precisamos esperar o 'onFinishHydration' para ter certeza
+    // que o histórico de chat foi carregado do chrome.storage.
     const unsub = useChatStore.persist.onFinishHydration(() => {
+      console.log("AppWrapper: Hidratação do chat concluída.");
       setIsHydrated(true);
     });
 
+    // Se já estiver hidratado (cache), define como true
     if (useChatStore.persist.hasHydrated()) {
+      console.log("AppWrapper: Chat já estava hidratado.");
       setIsHydrated(true);
     }
     
     return () => {
-      unsub();
+      unsub(); // Limpa a inscrição
     };
   }, []);
   // --- FIM DA CORREÇÃO ---
@@ -152,7 +160,7 @@ function AppWrapper() {
   };
   // --- Fim (handleLogin, handleLogout) ---
 
-  // O Loading principal agora espera por AMBOS
+  // 5. O Loading principal agora espera por AMBOS
   if ((isLoadingAuth || !isHydrated) && !authError) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -161,6 +169,7 @@ function AppWrapper() {
     );
   }
   
+  // 6. Renderiza o Login ou o App principal
   return (
     <>
       {!apiToken ? (

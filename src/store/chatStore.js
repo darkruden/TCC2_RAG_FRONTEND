@@ -83,7 +83,7 @@ export const useChatStore = create(
         });
       },
       
-      // Ação para o submit (NÃO MAIS USADA PELO APP.JS, MAS MANTIDA)
+      // Ação de submit (não é mais chamada pelo App.js, mas mantida)
       submitPrompt: (userPrompt) => {
         get().addMessage('user', userPrompt);
         set({ inputPrompt: '', arquivo: null });
