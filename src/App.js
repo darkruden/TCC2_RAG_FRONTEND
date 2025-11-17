@@ -1,21 +1,20 @@
 // CÓDIGO COMPLETO PARA: src/App.js
-// (Com todas as importações e correções de renderização)
+// (Versão final com Job Active Chip, dicas e lógica de fluxo corrigida)
 
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { 
   Container, Box, Alert, Stack, TextField, IconButton,
-  CircularProgress, Paper, Typography, Chip
+  CircularProgress, Paper, Typography, Chip, Tooltip
 } from '@mui/material';
 import { 
     Send as SendIcon, 
     AttachFile as AttachFileIcon,
     ClearAll as ClearAllIcon
-} from '@mui/icons-material'; // <-- Importação do ClearAllIcon e SendIcon
-import ReactMarkdown from 'react-markdown'; // <-- Importação do ReactMarkdown
+} from '@mui/icons-material';
+import ReactMarkdown from 'react-markdown'; 
 import Header from './components/Header';
 import { useQuery } from '@tanstack/react-query';
 import { useChatStore } from './store/chatStore'; 
-// import axios from 'axios'; // Não é mais necessário aqui
 
 import { 
     iniciarChat,
@@ -46,7 +45,6 @@ function ChatMessage({ message }) {
   );
 }
 
-// --- 1. ACEITAR PROPS DE AUTH ---
 function App({ apiToken, userEmail, onLogout }) {
   
   // ==================================================================
@@ -59,18 +57,20 @@ function App({ apiToken, userEmail, onLogout }) {
     isStreaming, startBotMessage, appendLastMessage, finishBotMessage
   } = useChatStore((state) => state);
 
-  // --- Estado do Modal de Agendamentos ---
   const [schedulesModalOpen, setSchedulesModalOpen] = useState(false);
+  const [activeJob, setActiveJob] = useState(null); 
 
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
+  
+  const isInputDisabled = isStreaming || !apiToken || activeJob !== null;
   
   // ==================================================================
   // 2. Configuração Centralizada da API
   // ==================================================================
   
   const apiClient = useMemo(() => {
-    return createApiClient(apiToken); // Cria o cliente com o token recebido
+    return createApiClient(apiToken); 
   }, [apiToken]);
 
   // ==================================================================
@@ -82,6 +82,7 @@ function App({ apiToken, userEmail, onLogout }) {
     queryFn: () => testarConexao(apiClient),
     select: (data) => data.status === 'online',
     retry: 1,
+    enabled: !!apiToken
   });
   
   // ==================================================================
@@ -100,8 +101,12 @@ function App({ apiToken, userEmail, onLogout }) {
         
         if (request.action === 'job_finished') {
           addMessage('bot', request.message);
+          setActiveJob(null);
         } else if (request.action === 'job_failed') {
           addMessage('bot', `❌ **Tarefa Falhou:** ${request.error}`);
+          setActiveJob(null);
+        } else if (request.action === 'job_status_update' && request.jobId === activeJob?.jobId) {
+            setActiveJob(prev => ({ ...prev, message: request.message }));
         }
         
         sendResponse({ success: true });
@@ -117,10 +122,13 @@ function App({ apiToken, userEmail, onLogout }) {
     } else {
       console.warn("API chrome.runtime.onMessage não encontrada.");
     }
-  }, [addMessage]);
+  }, [addMessage, activeJob]);
   
   // (Funções de Anexo)
-  const handleAttachClick = () => { fileInputRef.current.click(); };
+  const handleAttachClick = () => { 
+    if (isInputDisabled) return;
+    fileInputRef.current.click(); 
+  };
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -132,13 +140,16 @@ function App({ apiToken, userEmail, onLogout }) {
     setArquivo(null);
     if (fileInputRef.current) fileInputRef.current.value = null;
   };
-  const handleClearChat = () => { clearChat(); };
+  const handleClearChat = () => { 
+    if (isInputDisabled) return;
+    clearChat(); 
+  };
   
   // --- LÓGICA DE SUBMIT ---
   const handleChatSubmit = async (e) => {
     e.preventDefault();
     const prompt = inputPrompt.trim();
-    if (isStreaming || (!prompt && !arquivo)) return;
+    if (isInputDisabled || (!prompt && !arquivo)) return;
     
     const userPrompt = prompt || (arquivo ? `Analisar o arquivo: ${arquivo.name}` : '');
     
@@ -190,6 +201,8 @@ function App({ apiToken, userEmail, onLogout }) {
           break;
           
         case 'job_enqueued':
+          setActiveJob({ jobId: data.job_id, type: 'general', message: data.message });
+          
           addMessage('bot', data.message);
           
           if (window.chrome && chrome.runtime && chrome.runtime.sendMessage) {
@@ -233,18 +246,40 @@ function App({ apiToken, userEmail, onLogout }) {
           onOpenSchedules={() => setSchedulesModalOpen(true)}
         />
         
-        <IconButton onClick={handleClearChat} title="Limpar histórico do chat" size="small" disabled={isStreaming}>
-          <ClearAllIcon />
-        </IconButton>
+        <Tooltip title="Limpar histórico do chat">
+          <IconButton onClick={handleClearChat} size="small" disabled={isInputDisabled}>
+            <ClearAllIcon />
+          </IconButton>
+        </Tooltip>
       </Box>
       
-      {backendIsError && (
+      {backendStatus === false && ( // Usa estritamente 'false' aqui
          <Alert severity="error" sx={{ m: 2.5, mt: 0 }}>
            Não foi possível conectar ao backend.
          </Alert>
       )}
       
-      <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2.5 }}>
+      {/* CHIP DE STATUS PARA JOB ATIVO */}
+      {activeJob && (
+         <Chip
+           icon={<CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />}
+           label={activeJob.message || "Tarefa em andamento..."}
+           color="secondary"
+           variant="filled"
+           sx={{ m: 2.5, mt: 1, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+         />
+      )}
+      
+      {/* TEXTO DE DICAS */}
+      {!isInputDisabled && messages.length <= 1 && (
+        <Box sx={{ px: 2.5, pb: 1, mt: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+             💡 Dicas: Tente "Ingerir user/repo" ou "Relatório de quem mais contribuiu".
+          </Typography>
+        </Box>
+      )}
+      
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2.5, pt: isInputDisabled ? 0 : 2.5 }}>
         {/* Renderiza o histórico de mensagens */}
         {messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />
@@ -269,7 +304,7 @@ function App({ apiToken, userEmail, onLogout }) {
           <Chip
             label={arquivo.name}
             onDelete={handleRemoveFile}
-            color="primary"
+            color="secondary" 
             size="small"
             sx={{ mb: 1 }}
           />
@@ -282,13 +317,16 @@ function App({ apiToken, userEmail, onLogout }) {
             style={{ display: 'none' }}
             accept=".txt,.md,text/plain,text/markdown"
           />
-          <IconButton 
-            onClick={handleAttachClick} 
-            disabled={isStreaming || !backendStatus}
-            aria-label="Anexar arquivo"
-          >
-            <AttachFileIcon />
-          </IconButton>
+          <Tooltip title={isInputDisabled ? "Aguarde a conclusão da tarefa" : "Anexar arquivo (.txt, .md)"}>
+            <IconButton 
+              onClick={handleAttachClick} 
+              disabled={isInputDisabled || !backendStatus}
+              aria-label="Anexar arquivo"
+              color={arquivo ? "secondary" : "default"}
+            >
+              <AttachFileIcon />
+            </IconButton>
+          </Tooltip>
           
           <TextField
             fullWidth
@@ -297,7 +335,7 @@ function App({ apiToken, userEmail, onLogout }) {
             placeholder="Pergunte, ingira ou anexe um..."
             value={inputPrompt}
             onChange={(e) => setInputPrompt(e.target.value)}
-            disabled={isStreaming || !backendStatus}
+            disabled={isInputDisabled || !backendStatus}
             autoFocus
             multiline
             maxRows={4}
@@ -313,7 +351,7 @@ function App({ apiToken, userEmail, onLogout }) {
           <IconButton 
             type="submit" 
             color="primary" 
-            disabled={isStreaming || (!inputPrompt.trim() && !arquivo)}
+            disabled={isInputDisabled || (!inputPrompt.trim() && !arquivo)}
           >
             <SendIcon />
           </IconButton>
