@@ -16,9 +16,11 @@
 ./public/manifest.json
 ./src
 ./src/App.js
+./src/AppWrapper.js
 ./src/assets
 ./src/assets/logo.png
 ./src/components
+./src/components/AgendamentosModal.js
 ./src/components/ConsultaForm.js
 ./src/components/Header.js
 ./src/components/IngestaoForm.js
