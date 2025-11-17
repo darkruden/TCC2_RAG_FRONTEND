@@ -1,13 +1,14 @@
-// CÓDIGO COMPLETO PARA: src/AppWrapper.js
-// (Implementa o fluxo chrome.identity)
+// CÓDIGO COMPLETO E ATUALIZADO PARA: src/AppWrapper.js
+// (Adiciona verificação de hidratação do Zustand)
 
 import React, { useState, useEffect } from 'react';
 import { CircularProgress, Box, Button, Typography, Container, Alert } from '@mui/material';
 import App from './App';
 import Header from './components/Header';
 import { loginWithGoogle } from './services/api';
+import { useChatStore } from './store/chatStore'; // <-- 1. Importar o store
 
-// --- Funções Helper de Storage ---
+// --- Funções Helper de Storage (Sem alterações) ---
 const getStoredAuth = () => {
   return new Promise((resolve) => {
     if (window.chrome && chrome.storage && chrome.storage.local) {
@@ -20,7 +21,6 @@ const getStoredAuth = () => {
     }
   });
 };
-
 const setStoredAuth = (token, email) => {
   if (window.chrome && chrome.storage && chrome.storage.local) {
     chrome.storage.local.set({ apiToken: token, userEmail: email });
@@ -28,7 +28,7 @@ const setStoredAuth = (token, email) => {
 };
 // --- Fim dos Helpers ---
 
-// --- Tela de Login Nativa ---
+// --- Tela de Login Nativa (Sem alterações) ---
 const LoginScreen = ({ onLoginClick, error, isLoading }) => (
   <Container 
     maxWidth="xs"
@@ -69,10 +69,14 @@ const LoginScreen = ({ onLoginClick, error, isLoading }) => (
 function AppWrapper() {
   const [apiToken, setApiToken] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true); // <-- Renomeado
   const [authError, setAuthError] = useState(null);
+  
+  // --- INÍCIO DA ATUALIZAÇÃO ---
+  // 2. Estado de hidratação do Zustand
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // 1. Verifica o storage na inicialização
+  // 3. Efeito para verificar o Auth
   useEffect(() => {
     const checkAuth = async () => {
       const { apiToken, userEmail } = await getStoredAuth();
@@ -80,22 +84,39 @@ function AppWrapper() {
         setApiToken(apiToken);
         setUserEmail(userEmail);
       }
-      setIsLoading(false);
+      setIsLoadingAuth(false); // <-- Só termina o loading do auth
     };
     checkAuth();
   }, []);
 
-  // 2. Nova função de login (chrome.identity)
+  // 4. Efeito para verificar a Hidratação do Zustand
+  useEffect(() => {
+    // A persistência do Zustand é assíncrona.
+    // Precisamos esperar o 'onFinishHydration' para ter certeza
+    // que o histórico de chat foi carregado do chrome.storage.
+    const unsub = useChatStore.persist.onFinishHydration(() => {
+      setIsHydrated(true);
+    });
+
+    // Se já estiver hidratado (cache), define como true
+    if (useChatStore.persist.hasHydrated()) {
+      setIsHydrated(true);
+    }
+    
+    return () => {
+      unsub(); // Limpa a inscrição
+    };
+  }, []);
+  // --- FIM DA ATUALIZAÇÃO ---
+
+  // (handleLogin e handleLogout não mudam)
   const handleLogin = () => {
     if (!window.chrome || !chrome.identity) {
       setAuthError("API de Identidade do Chrome não encontrada. Isso funciona apenas na extensão.");
       return;
     }
-    
     setIsLoading(true);
     setAuthError(null);
-
-    // Esta é a chamada nativa do Chrome
     chrome.identity.getAuthToken({ interactive: true }, async (accessToken) => {
       if (chrome.runtime.lastError || !accessToken) {
         console.error(chrome.runtime.lastError);
@@ -103,11 +124,8 @@ function AppWrapper() {
         setIsLoading(false);
         return;
       }
-
-      // 3. Token do Google obtido. Agora, troque pelo nosso token de API pessoal.
       try {
         const { api_key, email } = await loginWithGoogle(accessToken);
-        
         if (api_key) {
           setStoredAuth(api_key, email);
           setApiToken(api_key);
@@ -124,8 +142,6 @@ function AppWrapper() {
       }
     });
   };
-  
-  // 3. Função de Logout
   const handleLogout = () => {
     if (window.chrome && chrome.identity) {
       chrome.identity.getAuthToken({ interactive: false }, (accessToken) => {
@@ -139,23 +155,25 @@ function AppWrapper() {
     setApiToken(null);
     setUserEmail(null);
   };
+  // --- Fim (handleLogin, handleLogout) ---
 
-  if (isLoading && !authError) {
+  // 5. O Loading principal agora espera por AMBOS
+  if ((isLoadingAuth || !isHydrated) && !authError) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
       </Box>
     );
   }
-
-  // 4. Renderiza o Login ou o App principal
+  
+  // 6. Renderiza o Login ou o App principal
   return (
     <>
       {!apiToken ? (
         <LoginScreen 
           onLoginClick={handleLogin} 
           error={authError}
-          isLoading={isLoading}
+          isLoading={isLoadingAuth} // O loading do login só depende do auth
         />
       ) : (
         <App 
