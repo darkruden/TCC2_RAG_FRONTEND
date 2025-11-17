@@ -1,5 +1,5 @@
 // CÓDIGO COMPLETO PARA: src/App.js
-// (Aprimoramento da estilização de Markdown para melhor UX/leitura de código)
+// (Versão final com otimizações de performance React.memo/useMemo)
 
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { 
@@ -8,8 +8,7 @@ import {
 } from '@mui/material';
 import { 
     Send as SendIcon, 
-    AttachFile as AttachFileIcon,
-    ClearAll as ClearAllIcon 
+    AttachFile as AttachFileIcon
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown'; 
 import Header from './components/Header';
@@ -24,8 +23,8 @@ import {
 } from './services/api'; 
 import AgendamentosModal from './components/AgendamentosModal';
 
-// (Componente ChatMessage COM ESTILOS DE MARKDOWN APRIMORADOS)
-function ChatMessage({ message }) {
+// Otimização de performance: O componente de mensagem é memorizado
+const ChatMessage = React.memo(function ChatMessage({ message }) {
   const isUser = message.sender === 'user';
   return (
     <Box sx={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', mb: 2 }}>
@@ -38,17 +37,15 @@ function ChatMessage({ message }) {
           maxWidth: '80%', 
           borderRadius: isUser ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
           
-          // --- NOVO: ESTILOS PARA O CONTEÚDO MARKDOWN ---
+          // --- ESTILOS PARA O CONTEÚDO MARKDOWN (MANTIDOS) ---
           '& h1, & h2, & h3, & h4, & h5, & h6': {
             mt: 1, 
             mb: 1,
             fontWeight: 'bold',
-            // Cores: Títulos azuis no chat do bot, brancos/primários no chat do user
             color: isUser ? 'inherit' : 'primary.main', 
             borderBottom: 'none' 
           },
           '& code': {
-             // Estilo para código inline (fundo mais sutil)
             backgroundColor: isUser ? 'rgba(255, 255, 255, 0.2)' : 'rgba(139, 148, 158, 0.2)', 
             borderRadius: '4px',
             px: '4px',
@@ -56,18 +53,17 @@ function ChatMessage({ message }) {
             fontSize: '90%',
           },
           '& pre': {
-            // Estilo para blocos de código (fundo escuro, alta fidelidade)
-            backgroundColor: '#0d1117', // Cor escura como fundo de código
+            backgroundColor: '#0d1117', 
             color: '#c9d1d9',
             p: 1,
             borderRadius: '6px',
             overflowX: 'auto',
             mt: 1,
             mb: 0,
-            whiteSpace: 'pre-wrap', // Garante que o texto quebre
+            whiteSpace: 'pre-wrap', 
           },
           '& ul, & ol': {
-            pl: 2, // Adiciona padding para listas
+            pl: 2, 
             mt: 0,
             mb: 0,
             '& li': {
@@ -76,7 +72,7 @@ function ChatMessage({ message }) {
             }
           },
           '& p': {
-            m: 0, // Remove margem padrão dos parágrafos, confiando no espaçamento entre Boxes
+            m: 0, 
           }
           // --- FIM DOS ESTILOS ---
         }}
@@ -87,7 +83,8 @@ function ChatMessage({ message }) {
       </Paper>
     </Box>
   );
-}
+});
+
 
 function App({ apiToken, userEmail, onLogout }) {
   
