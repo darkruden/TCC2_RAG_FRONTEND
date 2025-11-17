@@ -9,7 +9,7 @@
     "notifications",
     "downloads",
     "sidePanel",
-    "identity",       
+    "identity",
     "identity.email"
   ],
   
@@ -32,11 +32,11 @@
   },
 
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://meu-tcc-testes-041c1dd46d1d.herokuapp.com https://www.googleapis.com;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://meu-tcc-testes-041c1dd46d1d.herokuapp.com https://www.googleapis.com https://accounts.google.com;"
   },
   
   "oauth2": {
-    "client_id": "SEU_ID_DO_CLIENTE_OAUTH_AQUI.apps.googleusercontent.com",
+    "client_id": "831244530124-rv13ko24si2u8edj23agc4c2greva6nq.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile"

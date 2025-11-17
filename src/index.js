@@ -8,7 +8,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // import { GoogleOAuthProvider } from '@react-oauth/google'; // <-- REMOVIDO
 import theme from './theme';
-import AppWrapper from './AppWrapper'; // <-- Alterado de App para AppWrapper
+import AppWrapper from './AppWrapper'; // <-- Aponta para o AppWrapper
 
 const queryClient = new QueryClient();
 
