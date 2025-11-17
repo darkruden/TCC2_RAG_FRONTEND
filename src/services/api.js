@@ -1,103 +1,156 @@
-// src/services/api.js
+// CÓDIGO COMPLETO E ATUALIZADO PARA: src/services/api.js
+// (Força o API_URL para o Heroku)
+
 import axios from 'axios';
 
-// 1. A FUNÇÃO getConfig NÃO MUDA
-async function getConfig() {
-  const { apiUrl, apiToken } = await chrome.storage.local.get(['apiUrl', 'apiToken']);
-  return {
-    apiUrl: apiUrl || 'https://protected-ridge-40630-cca6313c2003.herokuapp.com',
-    apiToken: apiToken || 'testebrabotoken'
-  };
-}
+// --- INÍCIO DA CORREÇÃO ---
+// Removemos a verificação 'process.env.REACT_APP_API_URL'
+// para garantir que o build da extensão *sempre* aponte para o Heroku.
+const API_URL = 'https://meu-tcc-testes-041c1dd46d1d.herokuapp.com';
+// --- FIM DA CORREÇÃO ---
 
-// 2. O 'client' MUDOU: Removemos o 'Content-Type' padrão.
-//    Isso é CRUCIAL. O Axios agora definirá o Content-Type
-//    automaticamente (json para texto, multipart/form-data para arquivos).
-async function client() {
-  const { apiUrl, apiToken } = await getConfig();
+
+/**
+ * Cria uma instância do cliente Axios com a API Key pessoal.
+ * @param {string} apiToken O token (API Key) pessoal do usuário
+ * @returns {axios.AxiosInstance}
+ */
+export const createApiClient = (apiToken) => {
   return axios.create({
-    baseURL: apiUrl,
-    headers: {
-      // 'Content-Type': 'application/json', <-- REMOVIDO!
-      'X-API-Key': apiToken
-    },
-    timeout: 60000 // Aumentado para 60s para uploads
+    baseURL: API_URL, // <-- Agora usa a URL correta
+    headers: { 'X-API-Key': apiToken },
+    timeout: 60000 
   });
-}
-
-// 3. testarConexao NÃO MUDA
-export const testarConexao = async () => {
-  const c = await client();
-  const { data } = await c.get('/health');
-  return data;
 };
-
-// 4. consultarAPI NÃO MUDA
-export const consultarAPI = async (dados) => {
-  const c = await client();
-  const { data } = await c.post('/api/consultar', dados);
-  return data;
-};
-
-// 5. INÍCIO DAS NOVAS FUNÇÕES E MUDANÇAS
 
 /**
- * NOVA FUNÇÃO: Envia uma consulta via upload de arquivo.
+ * Envia o Access Token (vindo do chrome.identity) para o backend.
+ * @param {string} accessToken O token obtido do chrome.identity.getAuthToken
+ * @returns {Promise<object>} Retorna { api_key, email, nome }
  */
-export const consultarPorArquivo = async (repositorio, arquivo) => {
-  const c = await client();
+export const loginWithGoogle = async (accessToken) => {
+  try {
+    const { data } = await axios.post(
+      `${API_URL}/api/auth/google`, // <-- Agora usa a URL correta
+      { credential: accessToken } 
+    );
+    return data;
+  } catch (error) {
+    console.error("Erro no login Google:", error);
+    throw error.response?.data || new Error(error.message);
+  }
+};
+
+/**
+ * Testa a conexão com o /health usando um cliente autenticado.
+ */
+export const testarConexao = async (apiClient) => {
+  const { data } = await apiClient.get('/health');
+  return data;
+};
+
+/**
+ * Envia o histórico de mensagens para o Roteador de Intenção.
+ */
+export const iniciarChat = async (apiClient, messages, prompt, file) => {
+  try {
+    let data;
+    const messages_json = JSON.stringify(messages); 
+
+    if (file) {
+      const formData = new FormData();
+      formData.append('prompt', prompt);
+      formData.append('arquivo', file);
+      formData.append('messages_json', messages_json);
+      ({ data } = await apiClient.post('/api/chat_file', formData));
+    } else {
+      ({ data } = await apiClient.post('/api/chat', { messages: messages }));
+    }
+    return data;
+    
+  } catch (error) {
+    console.error("Erro em iniciarChat:", error);
+    throw error.response?.data || new Error(error.message);
+  }
+};
+
+// --- INÍCIO DA ADIÇÃO ---
+
+/**
+ * Busca os agendamentos ativos do usuário.
+ * @param {axios.AxiosInstance} apiClient O cliente axios autenticado
+ * @returns {Promise<Array<object>>} Lista de agendamentos
+ */
+export const getSchedules = async (apiClient) => {
+  try {
+    const { data } = await apiClient.get('/api/schedules');
+    return data;
+  } catch (error) {
+    console.error("Erro ao buscar agendamentos:", error);
+    throw error.response?.data || new Error(error.message);
+  }
+};
+
+/**
+ * Deleta um agendamento específico.
+ * @param {axios.AxiosInstance} apiClient O cliente axios autenticado
+ * @param {string} scheduleId O ID do agendamento a ser deletado
+ * @returns {Promise<void>}
+ */
+export const deleteSchedule = async (apiClient, scheduleId) => {
+  try {
+    await apiClient.delete(`/api/schedules/${scheduleId}`);
+  } catch (error) {
+    console.error("Erro ao deletar agendamento:", error);
+    throw error.response?.data || new Error(error.message);
+  }
+};
+// --- FIM DA ADIÇÃO ---
+
+/**
+ * Conecta-se ao endpoint de streaming.
+ */
+export const fetchChatStream = async ({
+  streamArgs,
+  apiToken,
+  onToken,
+  onComplete,
+  onError,
+}) => {
+  console.log("Iniciando fetchChatStream...");
   
-  // Cria um FormData para enviar o arquivo
-  const formData = new FormData();
-  formData.append('repositorio', repositorio);
-  formData.append('arquivo', arquivo); // O objeto 'File' do input
+  try {
+    const response = await fetch(`${API_URL}/api/chat_stream`, { // <-- Agora usa a URL correta
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiToken,
+      },
+      body: streamArgs,
+    });
 
-  // Faz o POST para a nova rota /api/consultar_arquivo
-  const { data } = await c.post('/api/consultar_arquivo', formData);
-  return data;
-};
+    if (!response.ok) {
+      const errorBody = await response.json();
+      throw new Error(errorBody.detail || `Erro de rede: ${response.statusText}`);
+    }
 
-/**
- * FUNÇÃO ATUALIZADA: gerarRelatorio agora envia o prompt
- * e sabe como lidar com a resposta .html.
- */
-export const gerarRelatorio = async (dados) => {
-  // 'dados' é: { repositorio: "user/repo", prompt: "..." }
-  const c = await client();
-  // O backend agora retorna: { "mensagem": "...", "job_id": "..." }
-  const { data } = await c.post('/api/relatorio', dados);
-  return data; // Retorna o { mensagem, job_id }
-};
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
 
-// --- INÍCIO DA NOVA FUNÇÃO ---
-/**
- * NOVA FUNÇÃO: Verifica o status de um job de relatório.
- */
-export const getReportStatus = async (jobId) => {
-  const c = await client();
-  // Chama o novo endpoint de status de relatório
-  const { data } = await c.get(`/api/relatorio/status/${jobId}`);
-  return data; // Retorna { status: '...', result: '...', error: '...' }
-};
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        console.log("Stream concluído.");
+        onComplete();
+        break;
+      }
+      
+      const chunk = decoder.decode(value);
+      onToken(chunk);
+    }
 
-// 6. ingestarRepositorio NÃO MUDA
-export const ingestarRepositorio = async (dados) => {
-  const c = await client();
-  const { data } = await c.post('/api/ingest', dados);
-  return data;
-};
-
-// 7. extrairInfoRepositorio NÃO MUDA
-export const extrairInfoRepositorio = () => {
-  const url = window.location.href;
-  const m = url.match(/github\.com\/([^\/]+\/[^\/]+)/);
-  if (m && m[1]) return { repositorio: m[1], url };
-  throw new Error('Não foi possível identificar o repositório');
-};
-
-// 8. getIngestStatus NÃO MUDA
-export const getIngestStatus = async (jobId) => {
-  const c = await client();
-  const { data } = await c.get(`/api/ingest/status/${jobId}`);
-  return data; 
+  } catch (error) {
+    console.error("Erro no fetchChatStream:", error);
+    onError(error);
+  }
 };

@@ -1,22 +1,26 @@
-// src/index.js
+// CÓDIGO COMPLETO PARA: src/index.js
+// (Remove a biblioteca @react-oauth/google)
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
-
-// 1. Importar provedores e tema do MUI
-import { Experimental_CssVarsProvider as CssVarsProvider } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import theme from './theme'; // Vamos criar este arquivo a seguir
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+// import { GoogleOAuthProvider } from '@react-oauth/google'; // <-- REMOVIDO
+import theme from './theme';
+import AppWrapper from './AppWrapper'; // <-- Aponta para o AppWrapper
 
-// NOTA: A importação de 'index.css' foi removida.
+const queryClient = new QueryClient();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    {/* 2. Envolver o App com os provedores do MUI */}
-    <CssVarsProvider theme={theme}>
-      <CssBaseline /> {/* 'Reseta' o CSS e aplica o fundo (corrige tela branca) */}
-      <App />
-    </CssVarsProvider>
+    {/* O GoogleOAuthProvider foi removido daqui */}
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <AppWrapper />
+      </ThemeProvider>
+    </QueryClientProvider>
   </React.StrictMode>
 );

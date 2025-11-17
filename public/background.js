@@ -1,84 +1,125 @@
-// public/background.js
+// CÓDIGO COMPLETO PARA: public/background.js
+// (Atualizado para a API do Side Panel e autenticação multiusuário)
 
 // --- Constantes ---
-const POLLING_INTERVAL_MS = 3000;
+const POLLING_INTERVAL_MS = 5000;
+const API_URL = 'https://meu-tcc-testes-041c1dd46d1d.herokuapp.com';
 
-// --- Estado da Animação ---
+// --- Estado da Animação (Badge) ---
 let loadingInterval = null;
 const loadingFrames = ['-', '\\', '|', '/'];
 let frameIndex = 0;
+let pollingJobs = {}; // Armazena { jobId: { type, intervalId } }
 
 // =================================================================
-//    LÓGICA DE AUTENTICAÇÃO (NOVA, baseada no seu api.js)
+//    LÓGICA DO SIDE PANEL
 // =================================================================
-async function getConfigForBackground() {
+try {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+} catch (e) {
+  console.warn("Erro ao definir o comportamento do Side Panel (provavelmente recarregamento):", e);
+}
+// =================================================================
+
+
+// =================================================================
+//    LÓGICA DE AUTENTICAÇÃO (ATUALIZADA)
+// =================================================================
+async function getApiToken() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['apiUrl', 'apiToken'], (result) => {
-      const config = {
-        apiUrl: result.apiUrl || 'https://protected-ridge-40630-cca6313c2003.herokuapp.com',
-        apiToken: result.apiToken || 'testebrabotoken' // O mesmo fallback do seu api.js
-      };
-      resolve(config);
+    // Busca a 'apiToken' salva pelo AppWrapper.js após o login
+    chrome.storage.local.get(['apiToken'], (result) => {
+      resolve(result.apiToken || null);
     });
   });
 }
 
 // --- Funções de Animação (Badge) ---
-// (Estas funções permanecem as mesmas de antes)
 function startLoadingAnimation() {
   if (loadingInterval) return;
   frameIndex = 0;
   loadingInterval = setInterval(() => {
     chrome.action.setBadgeText({ text: loadingFrames[frameIndex] });
-    chrome.action.setBadgeBackgroundColor({ color: '#0366d6' });
     frameIndex = (frameIndex + 1) % loadingFrames.length;
   }, 200);
 }
-
 function stopLoadingAnimation(status) {
   if (loadingInterval) {
     clearInterval(loadingInterval);
     loadingInterval = null;
   }
-  frameIndex = 0;
-  if (status === 'success') {
-    chrome.action.setBadgeText({ text: '✓' });
-    chrome.action.setBadgeBackgroundColor({ color: '#28a745' });
-  } else if (status === 'fail') {
-    chrome.action.setBadgeText({ text: '!' });
-    chrome.action.setBadgeBackgroundColor({ color: '#dc3545' });
-  }
-  
-  // A LINHA ABAIXO FOI REMOVIDA:
-  // setTimeout(resetBadge, 5000); 
+  const color = status === 'success' ? '#28a745' : '#dc3545';
+  const text = status === 'success' ? '✓' : '!';
+  chrome.action.setBadgeText({ text: text });
+  chrome.action.setBadgeBackgroundColor({ color: color });
+}
+function resetBadge() {
+  chrome.action.setBadgeText({ text: '' });
+  chrome.action.setBadgeBackgroundColor({ color: '#0366d6' });
 }
 // =================================================================
 
-function resetBadge() {
-  chrome.action.setBadgeText({ text: 'RAG' });
-  chrome.action.setBadgeBackgroundColor({ color: '#0366d6' });
+// --- LÓGICA DE POLLING E DOWNLOAD ---
+
+function showNotification(title, message, jobId) {
+  chrome.notifications.create(jobId, {
+    type: 'basic',
+    iconUrl: 'logo128.png',
+    title: title,
+    message: message,
+    priority: 2
+  });
 }
 
+async function startDownload(filename, apiToken) {
+  if (!apiToken) {
+    showNotification(`❌ Download Falhou`, "Usuário não autenticado.", filename);
+    return;
+  }
+  try {
+    const downloadUrl = `${API_URL}/api/relatorio/download/${filename}`;
+    
+    chrome.downloads.download({
+      url: downloadUrl,
+      filename: filename,
+      headers: [
+        { name: 'X-API-Key', value: apiToken } // Usa o token pessoal
+      ]
+    }, (downloadId) => {
+      if (chrome.runtime.lastError) {
+        console.error("Erro ao iniciar download:", chrome.runtime.lastError.message);
+        chrome.runtime.sendMessage({
+          action: 'job_failed',
+          jobId: filename,
+          error: `Falha ao iniciar download: ${chrome.runtime.lastError.message}`
+        });
+      }
+    });
+  } catch (err) {
+    console.error("Erro na função startDownload:", err);
+  }
+}
 
-// --- LÓGICA DE POLLING (Atualizada) ---
+async function pollJobStatus(jobId, type) {
+  if (!jobId || !type) return;
 
-let pollingIntervalId = null;
+  const apiToken = await getApiToken();
+  if (!apiToken) {
+    console.error(`Polling: Erro de autenticação para ${jobId}. Token não encontrado.`);
+    stopPolling(jobId);
+    stopLoadingAnimation('fail');
+    return;
+  }
 
-// Função que chama a API de status
-async function checkIngestStatus(jobId) {
-  if (!jobId) return;
-
-  // 1. Pega a config (URL e Token) do storage
-  const config = await getConfigForBackground();
+  const endpoint = type === 'ingest' 
+    ? `/api/ingest/status/${jobId}` 
+    : `/api/relatorio/status/${jobId}`;
+  const jobTypeDisplay = type === 'ingest' ? 'Ingestão' : 'Relatório';
 
   try {
-    // 2. Faz o 'fetch' com os cabeçalhos de autenticação
-    const response = await fetch(`${config.apiUrl}/api/ingest/status/${jobId}`, {
+    const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': config.apiToken // <-- A LINHA CRÍTICA QUE FALTAVA
-      }
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiToken }
     });
     
     if (!response.ok) {
@@ -87,121 +128,107 @@ async function checkIngestStatus(jobId) {
     
     const statusData = await response.json();
 
-    // Salva o status parcial
-    chrome.storage.local.set({ ingestStatusText: `Status: ${statusData.status}...` });
-
     if (statusData.status === 'finished') {
-      console.log('Polling: Ingestão finalizada.');
-      stopPolling();
+      console.log(`Polling: ${jobTypeDisplay} ${jobId} finalizado.`);
+      stopPolling(jobId);
       stopLoadingAnimation('success');
-      chrome.storage.local.set({
-        ingestSuccess: statusData.result || "Ingestão concluída!",
-        ingestLoading: false,
-        pollingJobId: null,
-        ingestStatusText: null
-      });
+      
+      const resultData = statusData.result;
+      
+      if (type === 'ingest') {
+        const successMessage = resultData.mensagem || resultData || "Tarefa concluída!";
+        chrome.runtime.sendMessage({ action: 'job_finished', jobId, type, message: successMessage });
+        showNotification(`✅ ${jobTypeDisplay} Concluída`, successMessage, jobId);
+      
+      } else if (type === 'report') {
+        const filename = resultData;
+        chrome.runtime.sendMessage({
+          action: 'job_finished',
+          jobId: jobId,
+          type: type,
+          message: `Relatório pronto. Iniciando download de \`${filename}\`...`
+        });
+        startDownload(filename, apiToken); // Passa o token para o download
+      }
 
     } else if (statusData.status === 'failed') {
-      console.log('Polling: Ingestão falhou.');
-      stopPolling();
+      console.log(`Polling: ${jobTypeDisplay} ${jobId} falhou.`);
+      stopPolling(jobId);
       stopLoadingAnimation('fail');
-      chrome.storage.local.set({
-        ingestError: statusData.error || "A ingestão falhou no backend.",
-        ingestLoading: false,
-        pollingJobId: null,
-        ingestStatusText: null
-      });
+      const errorMessage = statusData.error || "A tarefa falhou no backend.";
+      chrome.runtime.sendMessage({ action: 'job_failed', jobId, type, error: errorMessage });
+      showNotification(`❌ ${jobTypeDisplay} Falhou`, errorMessage, jobId);
     }
-    // Se for 'pending' ou outro, não faz nada e espera o próximo intervalo
-
+    // (Se 'pending' ou 'started', não faz nada e espera o próximo poll)
   } catch (err) {
-    console.error('Polling: Erro de rede ou autenticação.', err);
-    stopPolling();
-    stopLoadingAnimation('fail');
-    chrome.storage.local.set({
-      ingestError: `Erro ao verificar status: ${err.message}`,
-      ingestLoading: false,
-      pollingJobId: null,
-      ingestStatusText: null
-    });
+    console.error(`Polling: Erro de rede ou autenticação para ${jobId}.`, err);
+    // Não paramos o polling por erro de rede (pode ser temporário),
+    // mas paramos por 401 (que será pego pelo !response.ok)
+    if (err.message.includes('401')) {
+      stopPolling(jobId);
+      stopLoadingAnimation('fail');
+    }
   }
 }
 
-// Funções para controlar o polling (permanecem iguais)
-function startPolling(jobId) {
-  if (pollingIntervalId) {
-    clearInterval(pollingIntervalId);
-  }
-  checkIngestStatus(jobId); 
-  pollingIntervalId = setInterval(() => checkIngestStatus(jobId), POLLING_INTERVAL_MS);
+function startPolling(jobId, type) {
+  if (pollingJobs[jobId]) return;
+  console.log(`BG: Iniciando polling para ${jobId} (Tipo: ${type})`);
+  startLoadingAnimation();
+  pollJobStatus(jobId, type); 
+  const intervalId = setInterval(() => pollJobStatus(jobId, type), POLLING_INTERVAL_MS);
+  pollingJobs[jobId] = { type: type, intervalId: intervalId };
+  chrome.storage.local.set({ activePollingJobs: pollingJobs });
 }
 
-function stopPolling() {
-  if (pollingIntervalId) {
-    clearInterval(pollingIntervalId);
-    pollingIntervalId = null;
+function stopPolling(jobId) {
+  const job = pollingJobs[jobId];
+  if (job) {
+    console.log(`BG: Parando polling para ${jobId}`);
+    clearInterval(job.intervalId);
+    delete pollingJobs[jobId];
+    chrome.storage.local.set({ activePollingJobs: pollingJobs });
+    if (Object.keys(pollingJobs).length === 0) {
+      setTimeout(resetBadge, 3000);
+    }
   }
 }
 
-
-// --- Listeners de Mensagem e Inicialização ---
-// (Permanecem os mesmos)
-
+// --- Listeners de Mensagem ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
-  if (request.action === 'ingestaoIniciada') {
-    console.log('BG: Recebido ingestaoIniciada');
-    startLoadingAnimation();
-    sendResponse({ success: true });
-    return true;
-
-  } else if (request.action === 'iniciarPolling') {
-    console.log(`BG: Recebido iniciarPolling com jobId: ${request.jobId}`);
-    startPolling(request.jobId);
-    sendResponse({ success: true });
-    return true;
-
-  } else if (request.action === 'ingestaoFalhou') {
-    console.log('BG: Recebido ingestaoFalhou (antes do polling)');
-    stopLoadingAnimation('fail');
-    sendResponse({ success: true });
-    return true;
-  
-  // ADICIONE ESTE NOVO 'ELSE IF'
-  } else if (request.action === 'popupAbertoResetarBadge') {
-    console.log('BG: Popup aberto pelo usuário, resetando badge.');
-    resetBadge();
-    sendResponse({ success: true });
-    return true;
+  if (request.action === 'startPolling') {
+    if (request.jobId && request.type) {
+      startPolling(request.jobId, request.type);
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: "jobId ou type faltando." });
+    }
+    return true; // Indica resposta assíncrona
   }
 });
 
-// Ao iniciar o background script (ou recarregar a extensão)
-chrome.runtime.onStartup.addListener(() => {
+// --- LÓGICA DE REINICIALIZAÇÃO ---
+function resumePollingOnStartup() {
   resetBadge();
-  chrome.storage.local.get(['pollingJobId', 'ingestLoading'], (result) => {
-    if (result.pollingJobId) {
-      console.log(`BG: Reiniciando polling para ${result.pollingJobId}`);
-      startPolling(result.pollingJobId);
-      if (result.ingestLoading) {
-        startLoadingAnimation();
+  chrome.storage.local.get(['activePollingJobs'], (result) => {
+    if (result.activePollingJobs && Object.keys(result.activePollingJobs).length > 0) {
+      console.log("BG: Reiniciando jobs de polling persistidos...");
+      const oldJobs = result.activePollingJobs;
+      pollingJobs = {}; 
+      for (const jobId in oldJobs) {
+        if (oldJobs.hasOwnProperty(jobId)) {
+          const job = oldJobs[jobId];
+          startPolling(jobId, job.type);
+        }
       }
+    } else {
+      console.log("BG: Nenhum job de polling ativo para reiniciar.");
     }
   });
-});
+}
 
-// Configuração inicial ao instalar/recarregar
-resetBadge();
+chrome.runtime.onStartup.addListener(resumePollingOnStartup);
+resumePollingOnStartup(); // Também executa na instalação/atualização
 
-// Verifica se há um job ativo ao recarregar a extensão
-chrome.storage.local.get(['pollingJobId', 'ingestLoading'], (result) => {
-  if (result.pollingJobId) {
-    console.log(`BG: Extensão recarregada. Retomando polling para ${result.pollingJobId}`);
-    startPolling(result.pollingJobId);
-    if (result.ingestLoading) {
-      startLoadingAnimation();
-    }
-  }
-});
-
-console.log('GitHub RAG Extension - Background script inicializado');
+console.log('GitHub RAG Extension - Background script (Side Panel) inicializado');
