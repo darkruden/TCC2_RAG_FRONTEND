@@ -1,21 +1,19 @@
-// CÓDIGO COMPLETO PARA: src/components/Header.js
-// (Atualizado com email do usuário e botão de Logout)
-
 import React, { useState } from 'react';
 import { Box, Typography, IconButton, Menu, MenuItem } from '@mui/material';
-import { Menu as MenuIcon, Logout as LogoutIcon } from '@mui/icons-material';
-import logo from '../assets/logo.png';
 
-// --- INÍCIO DA ADIÇÃO ---
+// --- INÍCIO DA CORREÇÃO ---
+// Adiciona 'Event as EventIcon' à importação existente
 import { 
   Menu as MenuIcon, 
   Logout as LogoutIcon,
-  Event as EventIcon // <-- Ícone de calendário/evento
+  Event as EventIcon // <-- ADICIONADO AQUI
 } from '@mui/icons-material';
-// --- FIM DA ADIÇÃO ---
+// --- FIM DA CORREÇÃO ---
+
+import logo from '../assets/logo.png';
 
 // --- 1. ACEITAR PROPS DE AUTH ---
-const Header = ({ userEmail, onLogout }) => {
+const Header = ({ userEmail, onLogout, onOpenSchedules }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
 
