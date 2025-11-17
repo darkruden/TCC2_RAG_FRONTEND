@@ -1,6 +1,5 @@
-// CÓDIGO COMPLETO PARA: src/store/chatStore.js
-// (Corrigido: Remove a declaração duplicada de 'chromeStorage' 
-// e adiciona fallback para 'localStorage' para 'npm start' funcionar)
+// CÓDIGO COMPLETO E CORRIGIDO PARA: src/store/chatStore.js
+// (Remove o '}' extra no final e adiciona os estados de streaming)
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -50,8 +49,6 @@ const chromeStorage = {
   },
 };
 
-// (A definição duplicada que causou o erro foi REMOVIDA)
-
 // Cria o "store"
 export const useChatStore = create(
   // 1. 'persist' salva automaticamente o estado
@@ -63,6 +60,7 @@ export const useChatStore = create(
       ],
       inputPrompt: '',
       arquivo: null,
+      isStreaming: false, // <-- ADICIONADO
       
       // --- AÇÕES (ACTIONS) ---
       setInputPrompt: (prompt) => set({ inputPrompt: prompt }),
@@ -81,6 +79,7 @@ export const useChatStore = create(
           ],
           inputPrompt: '',
           arquivo: null,
+          isStreaming: false,
         });
       },
       
@@ -88,6 +87,26 @@ export const useChatStore = create(
       submitPrompt: (userPrompt) => {
         get().addMessage('user', userPrompt);
         set({ inputPrompt: '', arquivo: null });
+      },
+
+      // --- Ações de Streaming (ADICIONADAS) ---
+      startBotMessage: () => {
+        set((state) => ({
+          isStreaming: true,
+          messages: [...state.messages, { id: Date.now().toString(), sender: 'bot', text: '' }]
+        }));
+      },
+      appendLastMessage: (token) => {
+        set((state) => ({
+          messages: state.messages.map((msg, index) => 
+            index === state.messages.length - 1 
+            ? { ...msg, text: msg.text + token } 
+            : msg
+          )
+        }));
+      },
+      finishBotMessage: () => {
+        set({ isStreaming: false });
       },
     }),
     {
@@ -97,3 +116,4 @@ export const useChatStore = create(
     }
   )
 );
+// O '}' extra foi removido daqui
