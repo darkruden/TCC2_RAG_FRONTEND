@@ -3,32 +3,43 @@
   "name": "GitHub RAG TCC (Side Panel)",
   "version": "2.0",
   "description": "Extensão com RAG para análise de repositórios GitHub.",
+  
   "permissions": [
     "storage",
     "notifications",
     "downloads",
-    "sidePanel"
+    "sidePanel",
+    "identity",       
+    "identity.email"
   ],
+  
   "background": {
     "service_worker": "background.js"
   },
+
   "action": {
-    "default_title": "Abrir GitHub RAG",
-    "default_icon": {
-      "16": "logo16.png",
-      "48": "logo48.png",
-      "128": "logo128.png"
-    }
+    "default_title": "Abrir GitHub RAG"
   },
+
   "side_panel": {
     "default_path": "index.html"
   },
+  
   "icons": {
     "16": "logo16.png",
     "48": "logo48.png",
     "128": "logo128.png"
   },
+
   "content_security_policy": {
-    "extension_pages": "script-src 'self' https://accounts.google.com; object-src 'self'; connect-src 'self' https://meu-tcc-testes-041c1dd46d1d.herokuapp.com https://accounts.google.com;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://meu-tcc-testes-041c1dd46d1d.herokuapp.com https://www.googleapis.com;"
+  },
+  
+  "oauth2": {
+    "client_id": "SEU_ID_DO_CLIENTE_OAUTH_AQUI.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+    ]
   }
 }

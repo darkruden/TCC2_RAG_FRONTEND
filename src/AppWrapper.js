@@ -1,14 +1,13 @@
-// CÓDIGO COMPLETO E ATUALIZADO PARA: src/AppWrapper.js
-// (Refatorado para usar chrome.identity em vez do @react-oauth/google)
+// CÓDIGO COMPLETO PARA: src/AppWrapper.js
+// (Implementa o fluxo chrome.identity)
 
 import React, { useState, useEffect } from 'react';
 import { CircularProgress, Box, Button, Typography, Container, Alert } from '@mui/material';
 import App from './App';
-import Header from './components/Header'; // Reutiliza o Header para consistência
+import Header from './components/Header';
 import { loginWithGoogle } from './services/api';
 
 // --- Funções Helper de Storage ---
-// (Baseado no seu chatStore.js)
 const getStoredAuth = () => {
   return new Promise((resolve) => {
     if (window.chrome && chrome.storage && chrome.storage.local) {
@@ -16,8 +15,7 @@ const getStoredAuth = () => {
         resolve(result || {});
       });
     } else {
-      // Fallback para dev local (não deve ser usado na extensão)
-      console.warn("chrome.storage.local não encontrado.");
+      console.warn("chrome.storage.local não encontrado (rodando em dev?).");
       resolve({});
     }
   });
@@ -30,7 +28,7 @@ const setStoredAuth = (token, email) => {
 };
 // --- Fim dos Helpers ---
 
-// --- Nova Tela de Login Nativa ---
+// --- Tela de Login Nativa ---
 const LoginScreen = ({ onLoginClick, error, isLoading }) => (
   <Container 
     maxWidth="xs"
@@ -111,7 +109,6 @@ function AppWrapper() {
         const { api_key, email } = await loginWithGoogle(accessToken);
         
         if (api_key) {
-          // Sucesso! Salve e atualize o estado.
           setStoredAuth(api_key, email);
           setApiToken(api_key);
           setUserEmail(email);
@@ -121,7 +118,6 @@ function AppWrapper() {
       } catch (err) {
         console.error("Erro no login com backend:", err);
         setAuthError(err.detail || err.message || "Erro desconhecido ao tentar logar.");
-        // Se falhar, remova o token do Google para forçar um novo login
         chrome.identity.removeCachedAuthToken({ token: accessToken }, () => {});
       } finally {
         setIsLoading(false);
@@ -132,17 +128,13 @@ function AppWrapper() {
   // 3. Função de Logout
   const handleLogout = () => {
     if (window.chrome && chrome.identity) {
-      // Limpa o token do Google
       chrome.identity.getAuthToken({ interactive: false }, (accessToken) => {
         if (accessToken) {
-          // 1. Remove do cache do Chrome
           chrome.identity.removeCachedAuthToken({ token: accessToken }, () => {});
-          // 2. Revoga o token no Google (melhor prática)
           fetch(`https://accounts.google.com/o/oauth2/revoke?token=${accessToken}`);
         }
       });
     }
-    // Limpa nosso token de API pessoal do storage
     setStoredAuth(null, null); 
     setApiToken(null);
     setUserEmail(null);
