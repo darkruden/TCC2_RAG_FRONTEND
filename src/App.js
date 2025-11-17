@@ -1,28 +1,22 @@
-// CÓDIGO COMPLETO PARA: src/App.js
-// (Refatorado para aceitar props de autenticação do AppWrapper)
-
-import React, { useEffect, useRef, useMemo } from 'react'; // Removido o useState
+// --- 1. Importações ---
+import React, { useEffect, useRef, useMemo, useState } from 'react'; // <-- ADICIONAR useState
 import { 
   Container, Box, Alert, Stack, TextField, IconButton,
   CircularProgress, Paper, Typography, Chip
 } from '@mui/material';
-import { 
-    Send as SendIcon, 
-    AttachFile as AttachFileIcon,
-    ClearAll as ClearAllIcon
-} from '@mui/icons-material';
-import ReactMarkdown from 'react-markdown';
+// ... (outras importações)
 import Header from './components/Header';
 import { useQuery } from '@tanstack/react-query';
 import { useChatStore } from './store/chatStore'; 
-import axios from 'axios';
+// (axios não é mais necessário aqui, está no api.js)
 
 import { 
     iniciarChat,
     fetchChatStream,
     testarConexao,
-    createApiClient // <-- Importa o novo helper
+    createApiClient
 } from './services/api'; 
+import AgendamentosModal from './components/AgendamentosModal'; // <-- ADICIONAR IMPORT
 
 // (Componente ChatMessage não muda)
 function ChatMessage({ message }) {
@@ -47,7 +41,9 @@ function ChatMessage({ message }) {
 
 // --- 1. ACEITAR PROPS DE AUTH ---
 function App({ apiToken, userEmail, onLogout }) {
-  
+  // Estado para controlar a abertura do modal
+  const [schedulesModalOpen, setSchedulesModalOpen] = useState(false);
+  // --- FIM DA ADIÇÃO ---
   // ==================================================================
   // 1. Hooks de Gerenciamento de Estado (Zustand)
   // ==================================================================
@@ -233,8 +229,13 @@ function App({ apiToken, userEmail, onLogout }) {
       }}
     >
       <Box sx={{ p: 2.5, pb: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        {/* --- 3. PASSA AS PROPS DE AUTH PARA O HEADER --- */}
-        <Header userEmail={userEmail} onLogout={onLogout} />
+        {/* --- INÍCIO DA ATUALIZAÇÃO (Passa o handler para o Header) --- */}
+        <Header 
+          userEmail={userEmail} 
+          onLogout={onLogout} 
+          onOpenSchedules={() => setSchedulesModalOpen(true)} // <-- ADICIONADO
+        />
+        {/* --- FIM DA ATUALIZAÇÃO --- */}
         
         <IconButton onClick={handleClearChat} title="Limpar histórico do chat" size="small" disabled={isStreaming}>
           <ClearAllIcon />
@@ -296,7 +297,13 @@ function App({ apiToken, userEmail, onLogout }) {
           </IconButton>
         </Stack>
       </Box>
-      
+      {/* --- INÍCIO DA ADIÇÃO (Renderiza o Modal) --- */}
+      <AgendamentosModal 
+        open={schedulesModalOpen}
+        onClose={() => setSchedulesModalOpen(false)}
+        apiClient={apiClient}
+      />
+      {/* --- FIM DA ADIÇÃO --- */}
     </Container> 
   );
 }
