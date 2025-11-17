@@ -244,7 +244,14 @@ function App({ apiToken, userEmail, onLogout }) {
       {/* ... (Alert de status do backend) ... */}
       
       <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2.5 }}>
-        {/* ... (Renderização das mensagens) ... */}
+        {/* --- INÍCIO DA CORREÇÃO --- */}
+        {/* Renderiza o histórico de mensagens */}
+        {messages.map((msg) => (
+          <ChatMessage key={msg.id} message={msg} />
+        ))}
+        {/* --- FIM DA CORREÇÃO --- */}
+        {/* Div para rolar automaticamente para o final */}
+        <div ref={chatEndRef} />
       </Box>
       
       <Box 
