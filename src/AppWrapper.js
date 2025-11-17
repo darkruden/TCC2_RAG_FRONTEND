@@ -120,7 +120,7 @@ function AppWrapper() {
     setAuthError(null);
 
     // 1. Definição dos parâmetros
-    const CLIENT_ID = '831244530124-rv13ko24si2u8edj23agc4c2greva6nq.apps.googleusercontent.com'; //
+    const CLIENT_ID = '831244530124-1tj2rcn85vtial9t1o8nrpaskm959362.apps.googleusercontent.com'; //
     const SCOPES = [
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile'
