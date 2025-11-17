@@ -6,7 +6,7 @@ import { CircularProgress, Box, Button, Typography, Container, Alert } from '@mu
 import App from './App';
 import Header from './components/Header';
 import { loginWithGoogle } from './services/api';
-import { useChatStore } from './store/chatStore'; // <-- 1. Importar o store
+import { useChatStore } from './store/chatStore';
 
 // --- Funções Helper de Storage (Sem alterações) ---
 const getStoredAuth = () => {
@@ -69,14 +69,12 @@ const LoginScreen = ({ onLoginClick, error, isLoading }) => (
 function AppWrapper() {
   const [apiToken, setApiToken] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true); // <-- Renomeado
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
   
-  // --- INÍCIO DA ATUALIZAÇÃO ---
-  // 2. Estado de hidratação do Zustand
+  // --- INÍCIO DA CORREÇÃO ---
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // 3. Efeito para verificar o Auth
   useEffect(() => {
     const checkAuth = async () => {
       const { apiToken, userEmail } = await getStoredAuth();
@@ -84,35 +82,31 @@ function AppWrapper() {
         setApiToken(apiToken);
         setUserEmail(userEmail);
       }
-      setIsLoadingAuth(false); // <-- Só termina o loading do auth
+      setIsLoadingAuth(false);
     };
     checkAuth();
   }, []);
 
-  // 4. Efeito para verificar a Hidratação do Zustand
   useEffect(() => {
-    // A persistência do Zustand é assíncrona.
-    // Precisamos esperar o 'onFinishHydration' para ter certeza
-    // que o histórico de chat foi carregado do chrome.storage.
+    // Espera o 'onFinishHydration' para saber que o chatStore carregou
     const unsub = useChatStore.persist.onFinishHydration(() => {
       setIsHydrated(true);
     });
 
-    // Se já estiver hidratado (cache), define como true
     if (useChatStore.persist.hasHydrated()) {
       setIsHydrated(true);
     }
     
     return () => {
-      unsub(); // Limpa a inscrição
+      unsub();
     };
   }, []);
-  // --- FIM DA ATUALIZAÇÃO ---
+  // --- FIM DA CORREÇÃO ---
 
   // (handleLogin e handleLogout não mudam)
   const handleLogin = () => {
     if (!window.chrome || !chrome.identity) {
-      setAuthError("API de Identidade do Chrome não encontrada. Isso funciona apenas na extensão.");
+      setAuthError("API de Identidade do Chrome não encontrada.");
       return;
     }
     setIsLoading(true);
@@ -151,15 +145,14 @@ function AppWrapper() {
         }
       });
     }
-    // Limpa nosso token de API pessoal do storage
-    useChatStore.getState().clearChat(); // Limpa o chat ao sair
+    useChatStore.getState().clearChat();
     setStoredAuth(null, null); 
     setApiToken(null);
     setUserEmail(null);
   };
   // --- Fim (handleLogin, handleLogout) ---
 
-  // 5. O Loading principal agora espera por AMBOS
+  // O Loading principal agora espera por AMBOS
   if ((isLoadingAuth || !isHydrated) && !authError) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -168,7 +161,6 @@ function AppWrapper() {
     );
   }
   
-  // 6. Renderiza o Login ou o App principal
   return (
     <>
       {!apiToken ? (

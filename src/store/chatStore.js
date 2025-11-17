@@ -8,12 +8,14 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 const chromeStorage = {
   getItem: (name) => {
     return new Promise((resolve) => {
+      // Verifica se a API 'chrome.storage' existe
       if (window.chrome && chrome.storage && chrome.storage.local) {
         chrome.storage.local.get([name], (result) => {
+          // Resolve com o valor (ou null se não encontrado)
           resolve(result[name] ? JSON.stringify(result[name]) : null);
         });
       } else {
-        // Fallback para dev local
+        // Fallback para localStorage (para 'npm start' no navegador)
         console.warn("chrome.storage.local não encontrado, usando localStorage como fallback.");
         resolve(localStorage.getItem(name));
       }
@@ -26,6 +28,7 @@ const chromeStorage = {
           resolve();
         });
       } else {
+        // Fallback para localStorage
         localStorage.setItem(name, value);
         resolve();
       }
@@ -38,6 +41,7 @@ const chromeStorage = {
           resolve();
         });
       } else {
+        // Fallback para localStorage
         localStorage.removeItem(name);
         resolve();
       }
@@ -47,11 +51,12 @@ const chromeStorage = {
 
 // Cria o "store"
 export const useChatStore = create(
+  // 1. 'persist' salva automaticamente o estado
   persist(
     (set, get) => ({
       // --- ESTADO (STATE) ---
       messages: [
-        { id: '1', sender: 'bot', text: 'Olá! Como posso ajudar?' }
+        { id: '1', sender: 'bot', text: 'Olá! Como posso ajudar? Posso ingerir, consultar ou salvar uma instrução.' }
       ],
       inputPrompt: '',
       arquivo: null,
@@ -78,7 +83,7 @@ export const useChatStore = create(
         });
       },
       
-      // Ação para o submit (usada pelo App.js)
+      // Ação para o submit (NÃO MAIS USADA PELO APP.JS, MAS MANTIDA)
       submitPrompt: (userPrompt) => {
         get().addMessage('user', userPrompt);
         set({ inputPrompt: '', arquivo: null });
@@ -105,8 +110,9 @@ export const useChatStore = create(
       },
     }),
     {
-      name: 'tcc-rag-chat-storage', 
-      storage: createJSONStorage(() => chromeStorage),
+      // 2. Configuração da persistência
+      name: 'tcc-rag-chat-storage', // Nome da chave no storage
+      storage: createJSONStorage(() => chromeStorage), // Usa o storage híbrido
     }
   )
 );
