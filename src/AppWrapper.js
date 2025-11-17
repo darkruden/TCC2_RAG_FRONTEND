@@ -1,4 +1,5 @@
-// CÓDIGO COMPLETO E ATUALIZADO PARA: src/AppWrapper.js
+// CÓDIGO COMPLETO E CORRIGIDO PARA: src/AppWrapper.js
+// (Garante a barra final no redirect_uri para compatibilidade com o Google OAuth Policy)
 
 import React, { useState, useEffect } from 'react';
 import { CircularProgress, Box, Button, Typography, Container, Alert } from '@mui/material';
@@ -71,11 +72,9 @@ function AppWrapper() {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
   
-  // --- INÍCIO DA CORREÇÃO ---
-  // 2. Estado de hidratação do Zustand
+  // --- INÍCIO DO CÓDIGO (mantido) ---
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // 3. Efeito para verificar o Auth
   useEffect(() => {
     const checkAuth = async () => {
       const { apiToken, userEmail } = await getStoredAuth();
@@ -88,50 +87,49 @@ function AppWrapper() {
     checkAuth();
   }, []);
 
-  // 4. Efeito para verificar a Hidratação do Zustand
   useEffect(() => {
-    // A persistência do Zustand é assíncrona.
-    // Precisamos esperar o 'onFinishHydration' para ter certeza
-    // que o histórico de chat foi carregado do chrome.storage.
     const unsub = useChatStore.persist.onFinishHydration(() => {
       console.log("AppWrapper: Hidratação do chat concluída.");
       setIsHydrated(true);
     });
 
-    // Se já estiver hidratado (cache), define como true
     if (useChatStore.persist.hasHydrated()) {
       console.log("AppWrapper: Chat já estava hidratado.");
       setIsHydrated(true);
     }
     
     return () => {
-      unsub(); // Limpa a inscrição
+      unsub(); 
     };
   }, []);
-  // --- FIM DA CORREÇÃO ---
+  // --- FIM DO CÓDIGO (mantido) ---
 
-  // Lógica de Login com launchWebAuthFlow
+  // Lógica de Login com launchWebAuthFlow (COM CORREÇÃO DA BARRA FINAL)
   const handleLogin = () => {
     if (!window.chrome || !chrome.identity) {
       setAuthError("API de Identidade do Chrome não encontrada.");
       return;
     }
-    setIsLoadingAuth(true); // Usamos isLoadingAuth, não isLoading (que não existe)
+    setIsLoadingAuth(true); 
     setAuthError(null);
 
-    // 1. Definição dos parâmetros
-    const CLIENT_ID = '831244530124-1tj2rcn85vtial9t1o8nrpaskm959362.apps.googleusercontent.com'; //
+    // 1. Definição dos parâmetros (USE SEU NOVO CLIENT_ID AQUI)
+    const CLIENT_ID = '831244530124-1tj2rcn85vtial9t1o8nrpaskm959362.apps.googleusercontent.com'; // <--- SUBSTITUA AQUI
     const SCOPES = [
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile'
-    ]; //
-    const REDIRECT_URI = chrome.identity.getRedirectURL();
+    ]; 
+    
+    // CORREÇÃO CRÍTICA: Garantir a barra final no URI de redirecionamento
+    const REDIRECT_URI_BASE = chrome.identity.getRedirectURL();
+    const REDIRECT_URI = REDIRECT_URI_BASE.endsWith('/') ? REDIRECT_URI_BASE : REDIRECT_URI_BASE + '/';
+
 
     // 2. Construção da URL de autorização (Implicit Flow para Access Token)
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${CLIENT_ID}&` +
-      `response_type=token&` + // Pedindo o Access Token diretamente
-      `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` +
+      `response_type=token&` + 
+      `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` + // <--- USA A URI CORRIGIDA
       `scope=${encodeURIComponent(SCOPES.join(' '))}`;
 
     // 3. Chamada de launchWebAuthFlow
@@ -144,7 +142,14 @@ function AppWrapper() {
       }
       
       // 4. Extração do Access Token da URL de redirecionamento
-      const params = new URLSearchParams(responseUrl.split('#')[1]);
+      // Verifica se a URL retornada contém a seção de fragmento (Implicit Flow)
+      const fragment = responseUrl.split('#')[1];
+      if (!fragment) {
+           setAuthError("Resposta inválida do Google. Certifique-se de que o response_type=token foi usado.");
+           setIsLoadingAuth(false);
+           return;
+      }
+      const params = new URLSearchParams(fragment);
       const accessToken = params.get('access_token');
       
       if (!accessToken) {
@@ -174,10 +179,6 @@ function AppWrapper() {
 
   const handleLogout = () => {
     if (window.chrome && chrome.identity) {
-      // Como estamos usando launchWebAuthFlow/implicit flow, não há token em cache para remover (getAuthToken)
-      // O Access Token foi recebido e imediatamente trocado/usado.
-      // O logout do Chrome é mais complexo aqui, mas para fins de TCC
-      // basta limpar o armazenamento local e o estado.
       console.log("Logout: Limpando tokens locais.");
     }
     useChatStore.getState().clearChat();
@@ -187,7 +188,6 @@ function AppWrapper() {
   };
   // --- Fim (handleLogin, handleLogout) ---
 
-  // 5. O Loading principal agora espera por AMBOS
   if ((isLoadingAuth || !isHydrated) && !authError) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -196,7 +196,6 @@ function AppWrapper() {
     );
   }
   
-  // 6. Renderiza o Login ou o App principal
   return (
     <>
       {!apiToken ? (
