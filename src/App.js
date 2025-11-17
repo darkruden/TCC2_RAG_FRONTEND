@@ -1,4 +1,5 @@
-// CÓDIGO COMPLETO E CORRIGIDO PARA: src/App.js
+// CÓDIGO COMPLETO PARA: src/App.js
+// (Aprimoramento da estilização de Markdown para melhor UX/leitura de código)
 
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { 
@@ -23,7 +24,7 @@ import {
 } from './services/api'; 
 import AgendamentosModal from './components/AgendamentosModal';
 
-// (Componente ChatMessage não muda)
+// (Componente ChatMessage COM ESTILOS DE MARKDOWN APRIMORADOS)
 function ChatMessage({ message }) {
   const isUser = message.sender === 'user';
   return (
@@ -31,9 +32,53 @@ function ChatMessage({ message }) {
       <Paper 
         variant="outlined"
         sx={{
-          p: 1.5, bgcolor: isUser ? 'primary.main' : 'background.paper',
+          p: 1.5, 
+          bgcolor: isUser ? 'primary.main' : 'background.paper',
           color: isUser ? 'primary.contrastText' : 'text.primary',
-          maxWidth: '80%', borderRadius: isUser ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
+          maxWidth: '80%', 
+          borderRadius: isUser ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
+          
+          // --- NOVO: ESTILOS PARA O CONTEÚDO MARKDOWN ---
+          '& h1, & h2, & h3, & h4, & h5, & h6': {
+            mt: 1, 
+            mb: 1,
+            fontWeight: 'bold',
+            // Cores: Títulos azuis no chat do bot, brancos/primários no chat do user
+            color: isUser ? 'inherit' : 'primary.main', 
+            borderBottom: 'none' 
+          },
+          '& code': {
+             // Estilo para código inline (fundo mais sutil)
+            backgroundColor: isUser ? 'rgba(255, 255, 255, 0.2)' : 'rgba(139, 148, 158, 0.2)', 
+            borderRadius: '4px',
+            px: '4px',
+            py: '2px',
+            fontSize: '90%',
+          },
+          '& pre': {
+            // Estilo para blocos de código (fundo escuro, alta fidelidade)
+            backgroundColor: '#0d1117', // Cor escura como fundo de código
+            color: '#c9d1d9',
+            p: 1,
+            borderRadius: '6px',
+            overflowX: 'auto',
+            mt: 1,
+            mb: 0,
+            whiteSpace: 'pre-wrap', // Garante que o texto quebre
+          },
+          '& ul, & ol': {
+            pl: 2, // Adiciona padding para listas
+            mt: 0,
+            mb: 0,
+            '& li': {
+                mt: 0.5,
+                mb: 0,
+            }
+          },
+          '& p': {
+            m: 0, // Remove margem padrão dos parágrafos, confiando no espaçamento entre Boxes
+          }
+          // --- FIM DOS ESTILOS ---
         }}
       >
         <Typography component="div" variant="body2">
@@ -230,9 +275,8 @@ function App({ apiToken, userEmail, onLogout }) {
           userEmail={userEmail} 
           onLogout={onLogout} 
           onOpenSchedules={() => setSchedulesModalOpen(true)}
-          onClearChat={handleClearChat} // <-- NOVO: Passando a função de limpar chat
+          onClearChat={handleClearChat} 
         />
-        {/* O ÍCONE ClearAll FOI REMOVIDO DAQUI */}
       </Box>
       
       {backendStatus === false && (
