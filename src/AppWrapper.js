@@ -151,6 +151,8 @@ function AppWrapper() {
         }
       });
     }
+    // Limpa nosso token de API pessoal do storage
+    useChatStore.getState().clearChat(); // Limpa o chat ao sair
     setStoredAuth(null, null); 
     setApiToken(null);
     setUserEmail(null);
@@ -173,7 +175,7 @@ function AppWrapper() {
         <LoginScreen 
           onLoginClick={handleLogin} 
           error={authError}
-          isLoading={isLoadingAuth} // O loading do login só depende do auth
+          isLoading={isLoadingAuth}
         />
       ) : (
         <App 

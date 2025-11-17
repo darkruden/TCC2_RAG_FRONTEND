@@ -1,5 +1,5 @@
 // CÓDIGO COMPLETO E CORRIGIDO PARA: src/store/chatStore.js
-// (Remove o '}' extra no final e adiciona os estados de streaming)
+// (Adiciona os estados de streaming que faltavam)
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -8,14 +8,12 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 const chromeStorage = {
   getItem: (name) => {
     return new Promise((resolve) => {
-      // Verifica se a API 'chrome.storage' existe
       if (window.chrome && chrome.storage && chrome.storage.local) {
         chrome.storage.local.get([name], (result) => {
-          // Resolve com o valor (ou null se não encontrado)
           resolve(result[name] ? JSON.stringify(result[name]) : null);
         });
       } else {
-        // Fallback para localStorage (para 'npm start' no navegador)
+        // Fallback para dev local
         console.warn("chrome.storage.local não encontrado, usando localStorage como fallback.");
         resolve(localStorage.getItem(name));
       }
@@ -28,7 +26,6 @@ const chromeStorage = {
           resolve();
         });
       } else {
-        // Fallback para localStorage
         localStorage.setItem(name, value);
         resolve();
       }
@@ -41,7 +38,6 @@ const chromeStorage = {
           resolve();
         });
       } else {
-        // Fallback para localStorage
         localStorage.removeItem(name);
         resolve();
       }
@@ -51,12 +47,11 @@ const chromeStorage = {
 
 // Cria o "store"
 export const useChatStore = create(
-  // 1. 'persist' salva automaticamente o estado
   persist(
     (set, get) => ({
       // --- ESTADO (STATE) ---
       messages: [
-        { id: '1', sender: 'bot', text: 'Olá! Como posso ajudar? Posso ingerir, consultar ou salvar uma instrução.' }
+        { id: '1', sender: 'bot', text: 'Olá! Como posso ajudar?' }
       ],
       inputPrompt: '',
       arquivo: null,
@@ -83,7 +78,7 @@ export const useChatStore = create(
         });
       },
       
-      // Ação para o submit, que limpa o input
+      // Ação para o submit (usada pelo App.js)
       submitPrompt: (userPrompt) => {
         get().addMessage('user', userPrompt);
         set({ inputPrompt: '', arquivo: null });
@@ -110,10 +105,8 @@ export const useChatStore = create(
       },
     }),
     {
-      // 2. Configuração da persistência
-      name: 'tcc-rag-chat-storage', // Nome da chave no storage
-      storage: createJSONStorage(() => chromeStorage), // Usa o storage híbrido
+      name: 'tcc-rag-chat-storage', 
+      storage: createJSONStorage(() => chromeStorage),
     }
   )
 );
-// O '}' extra foi removido daqui
