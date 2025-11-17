@@ -1,11 +1,9 @@
-// CÓDIGO COMPLETO PARA: src/services/api.js
-// (Refatorado para Auth)
+// CÓDIGO COMPLETO E ATUALIZADO PARA: src/services/api.js
+// (Refatorado para Auth com chrome.identity e Memória de Chat)
 
 import axios from 'axios';
 
-// Pega a URL base do ambiente (útil para dev vs prod)
-// Lembre-se de criar um arquivo .env no frontend com:
-// REACT_APP_API_URL=https://meu-tcc-testes-041c1dd46d1d.herokuapp.com
+// URL base do seu backend
 const API_URL = process.env.REACT_APP_API_URL || 'https://meu-tcc-testes-041c1dd46d1d.herokuapp.com';
 
 /**
@@ -22,17 +20,17 @@ export const createApiClient = (apiToken) => {
 };
 
 /**
- * (NOVA FUNÇÃO)
- * Envia o token do Google para o backend para autenticação.
- * @param {string} credential O token JWT vindo do botão GoogleLogin
+ * (FUNÇÃO DE LOGIN ATUALIZADA)
+ * Envia o Access Token (vindo do chrome.identity) para o backend.
+ * @param {string} accessToken O token obtido do chrome.identity.getAuthToken
  * @returns {Promise<object>} Retorna { api_key, email, nome }
  */
-export const loginWithGoogle = async (credential) => {
+export const loginWithGoogle = async (accessToken) => {
   try {
     // Usa um cliente axios simples, pois não temos a X-API-Key ainda
     const { data } = await axios.post(
       `${API_URL}/api/auth/google`, 
-      { credential }
+      { credential: accessToken } // O backend espera 'credential'
     );
     return data;
   } catch (error) {
@@ -51,7 +49,8 @@ export const testarConexao = async (apiClient) => {
 };
 
 /**
- * Envia o prompt inicial para o Roteador de Intenção.
+ * (FUNÇÃO DE CHAT ATUALIZADA)
+ * Envia o histórico de mensagens para o Roteador de Intenção.
  * @param {axios.AxiosInstance} apiClient O cliente axios autenticado
  * @param {Array<Object>} messages O histórico de mensagens
  * @param {string} prompt O prompt *atual* do usuário (para upload de arquivo)
@@ -61,7 +60,7 @@ export const testarConexao = async (apiClient) => {
 export const iniciarChat = async (apiClient, messages, prompt, file) => {
   try {
     let data;
-    const messages_json = JSON.stringify(messages); // Converte o histórico
+    const messages_json = JSON.stringify(messages); 
 
     if (file) {
       // Rota de Upload de Arquivo
@@ -69,10 +68,9 @@ export const iniciarChat = async (apiClient, messages, prompt, file) => {
       formData.append('prompt', prompt);
       formData.append('arquivo', file);
       formData.append('messages_json', messages_json);
-      // user_email não é mais enviado, o backend pega do token
       ({ data } = await apiClient.post('/api/chat_file', formData));
     } else {
-      // Rota de Texto
+      // Rota de Texto (envia o histórico completo)
       ({ data } = await apiClient.post('/api/chat', { messages: messages }));
     }
     return data;
@@ -101,17 +99,16 @@ export const fetchChatStream = async ({
   console.log("Iniciando fetchChatStream...");
   
   try {
-    const response = await fetch(`${API_URL}/api/chat_stream`, { // Usa a URL base
+    const response = await fetch(`${API_URL}/api/chat_stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': apiToken,
       },
-      body: streamArgs,
+      body: streamArgs, // 'message' do /api/chat (que é um JSON.stringify)
     });
 
     if (!response.ok) {
-      // Tenta ler a mensagem de erro do backend
       const errorBody = await response.json();
       throw new Error(errorBody.detail || `Erro de rede: ${response.statusText}`);
     }

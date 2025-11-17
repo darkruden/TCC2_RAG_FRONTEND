@@ -1,12 +1,14 @@
-// CRIE ESTE NOVO ARQUIVO EM: src/AppWrapper.js
+// CÓDIGO COMPLETO E ATUALIZADO PARA: src/AppWrapper.js
+// (Refatorado para usar chrome.identity em vez do @react-oauth/google)
 
 import React, { useState, useEffect } from 'react';
-import { CircularProgress, Box } from '@mui/material';
-import App from './App'; // Seu chat
-import Login from './components/Login'; // Nossa nova tela de login
+import { CircularProgress, Box, Button, Typography, Container, Alert } from '@mui/material';
+import App from './App';
+import Header from './components/Header'; // Reutiliza o Header para consistência
+import { loginWithGoogle } from './services/api';
 
-// Esta é uma função helper para nosso armazenamento híbrido
-// (baseado no seu chatStore.js)
+// --- Funções Helper de Storage ---
+// (Baseado no seu chatStore.js)
 const getStoredAuth = () => {
   return new Promise((resolve) => {
     if (window.chrome && chrome.storage && chrome.storage.local) {
@@ -14,30 +16,63 @@ const getStoredAuth = () => {
         resolve(result || {});
       });
     } else {
-      // Fallback para dev local
-      resolve({
-        apiToken: localStorage.getItem('apiToken'),
-        userEmail: localStorage.getItem('userEmail'),
-      });
+      // Fallback para dev local (não deve ser usado na extensão)
+      console.warn("chrome.storage.local não encontrado.");
+      resolve({});
     }
   });
 };
 
-// Esta é a função que salva o token após o login
 const setStoredAuth = (token, email) => {
   if (window.chrome && chrome.storage && chrome.storage.local) {
     chrome.storage.local.set({ apiToken: token, userEmail: email });
-  } else {
-    localStorage.setItem('apiToken', token);
-    localStorage.setItem('userEmail', email);
   }
 };
+// --- Fim dos Helpers ---
+
+// --- Nova Tela de Login Nativa ---
+const LoginScreen = ({ onLoginClick, error, isLoading }) => (
+  <Container 
+    maxWidth="xs"
+    sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      height: '100vh',
+      p: 3
+    }}
+  >
+    <Header userEmail={null} onLogout={() => {}} /> 
+    <Typography variant="h6" gutterBottom>
+      Login Necessário
+    </Typography>
+    <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
+      Faça login com sua conta Google para começar a analisar repositórios.
+    </Typography>
+    
+    {isLoading ? (
+      <CircularProgress />
+    ) : (
+      <Button variant="contained" onClick={onLoginClick}>
+        Fazer Login com Google
+      </Button>
+    )}
+    {error && (
+      <Alert severity="error" sx={{ mt: 2, width: '100%' }}>
+        {error}
+      </Alert>
+    )}
+  </Container>
+);
+// --- Fim da Tela de Login ---
 
 
 function AppWrapper() {
   const [apiToken, setApiToken] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
   // 1. Verifica o storage na inicialização
   useEffect(() => {
@@ -52,22 +87,68 @@ function AppWrapper() {
     checkAuth();
   }, []);
 
-  // 2. Callback que será chamada pela tela de Login
-  const handleLoginSuccess = (token, email) => {
-    setStoredAuth(token, email);
-    setApiToken(token);
-    setUserEmail(email);
+  // 2. Nova função de login (chrome.identity)
+  const handleLogin = () => {
+    if (!window.chrome || !chrome.identity) {
+      setAuthError("API de Identidade do Chrome não encontrada. Isso funciona apenas na extensão.");
+      return;
+    }
+    
+    setIsLoading(true);
+    setAuthError(null);
+
+    // Esta é a chamada nativa do Chrome
+    chrome.identity.getAuthToken({ interactive: true }, async (accessToken) => {
+      if (chrome.runtime.lastError || !accessToken) {
+        console.error(chrome.runtime.lastError);
+        setAuthError("Falha ao obter token do Google: " + (chrome.runtime.lastError?.message || "Usuário cancelou."));
+        setIsLoading(false);
+        return;
+      }
+
+      // 3. Token do Google obtido. Agora, troque pelo nosso token de API pessoal.
+      try {
+        const { api_key, email } = await loginWithGoogle(accessToken);
+        
+        if (api_key) {
+          // Sucesso! Salve e atualize o estado.
+          setStoredAuth(api_key, email);
+          setApiToken(api_key);
+          setUserEmail(email);
+        } else {
+          setAuthError("Falha no login. O backend não retornou uma API key.");
+        }
+      } catch (err) {
+        console.error("Erro no login com backend:", err);
+        setAuthError(err.detail || err.message || "Erro desconhecido ao tentar logar.");
+        // Se falhar, remova o token do Google para forçar um novo login
+        chrome.identity.removeCachedAuthToken({ token: accessToken }, () => {});
+      } finally {
+        setIsLoading(false);
+      }
+    });
   };
   
-  // 3. Callback para Logout
+  // 3. Função de Logout
   const handleLogout = () => {
-    // Limpa o storage
+    if (window.chrome && chrome.identity) {
+      // Limpa o token do Google
+      chrome.identity.getAuthToken({ interactive: false }, (accessToken) => {
+        if (accessToken) {
+          // 1. Remove do cache do Chrome
+          chrome.identity.removeCachedAuthToken({ token: accessToken }, () => {});
+          // 2. Revoga o token no Google (melhor prática)
+          fetch(`https://accounts.google.com/o/oauth2/revoke?token=${accessToken}`);
+        }
+      });
+    }
+    // Limpa nosso token de API pessoal do storage
     setStoredAuth(null, null); 
     setApiToken(null);
     setUserEmail(null);
   };
 
-  if (isLoading) {
+  if (isLoading && !authError) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
@@ -79,13 +160,16 @@ function AppWrapper() {
   return (
     <>
       {!apiToken ? (
-        <Login onLoginSuccess={handleLoginSuccess} />
+        <LoginScreen 
+          onLoginClick={handleLogin} 
+          error={authError}
+          isLoading={isLoading}
+        />
       ) : (
-        // Passa o token e o email para o App.js e o Header
         <App 
           apiToken={apiToken} 
           userEmail={userEmail}
-          onLogout={handleLogout} // Passa a função de logout
+          onLogout={handleLogout}
         />
       )}
     </>
