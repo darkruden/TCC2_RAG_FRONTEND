@@ -105,7 +105,8 @@ async function pollJobStatus(jobId, type) {
 
   const apiToken = await getApiToken();
   if (!apiToken) {
-    console.error(`Polling: Erro de autenticação para ${jobId}. Token não encontrado.`);
+    // Erros críticos ainda podem ser logados
+    console.error(`Polling: Token não encontrado para ${jobId}.`);
     stopPolling(jobId);
     stopLoadingAnimation('fail');
     return;
@@ -114,7 +115,6 @@ async function pollJobStatus(jobId, type) {
   const endpoint = type === 'ingest' 
     ? `/api/ingest/status/${jobId}` 
     : `/api/relatorio/status/${jobId}`;
-  const jobTypeDisplay = type === 'ingest' ? 'Ingestão' : 'Relatório';
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -123,22 +123,30 @@ async function pollJobStatus(jobId, type) {
     });
     
     if (!response.ok) {
-      throw new Error(`Erro HTTP: ${response.status} ${response.statusText}`);
+      // Silenciamos erros 404/500 temporários para não poluir, 
+      // a menos que seja erro de Auth (401)
+      if (response.status === 401) {
+         stopPolling(jobId);
+         stopLoadingAnimation('fail');
+      }
+      return; 
     }
     
     const statusData = await response.json();
 
+    // SÓ LOGAMOS QUANDO TERMINA OU FALHA
     if (statusData.status === 'finished') {
-      console.log(`Polling: ${jobTypeDisplay} ${jobId} finalizado.`);
+      console.log(`[BG] Tarefa ${jobId} FINALIZADA.`); // Log único de sucesso
       stopPolling(jobId);
       stopLoadingAnimation('success');
       
       const resultData = statusData.result;
       
       if (type === 'ingest') {
+        // Aqui vem a mensagem "O repositório já é o mais atualizado"
         const successMessage = resultData.mensagem || resultData || "Tarefa concluída!";
         chrome.runtime.sendMessage({ action: 'job_finished', jobId, type, message: successMessage });
-        showNotification(`✅ ${jobTypeDisplay} Concluída`, successMessage, jobId);
+        showNotification(`✅ Concluído`, successMessage, jobId);
       
       } else if (type === 'report') {
         const filename = resultData;
@@ -146,28 +154,24 @@ async function pollJobStatus(jobId, type) {
           action: 'job_finished',
           jobId: jobId,
           type: type,
-          message: `Relatório pronto. Iniciando download de \`${filename}\`...`
+          message: `Relatório pronto. Iniciando download...`
         });
-        startDownload(filename, apiToken); // Passa o token para o download
+        startDownload(filename, apiToken);
       }
 
     } else if (statusData.status === 'failed') {
-      console.log(`Polling: ${jobTypeDisplay} ${jobId} falhou.`);
+      console.error(`[BG] Tarefa ${jobId} FALHOU.`); // Log único de erro
       stopPolling(jobId);
       stopLoadingAnimation('fail');
       const errorMessage = statusData.error || "A tarefa falhou no backend.";
       chrome.runtime.sendMessage({ action: 'job_failed', jobId, type, error: errorMessage });
-      showNotification(`❌ ${jobTypeDisplay} Falhou`, errorMessage, jobId);
+      showNotification(`❌ Falhou`, errorMessage, jobId);
     }
-    // (Se 'pending' ou 'started', não faz nada e espera o próximo poll)
+    
+    // REMOVKMOS O LOG DE "Polling..." ou "Pending..."
+    
   } catch (err) {
-    console.error(`Polling: Erro de rede ou autenticação para ${jobId}.`, err);
-    // Não paramos o polling por erro de rede (pode ser temporário),
-    // mas paramos por 401 (que será pego pelo !response.ok)
-    if (err.message.includes('401')) {
-      stopPolling(jobId);
-      stopLoadingAnimation('fail');
-    }
+    // Silêncio em erros de rede passageiros
   }
 }
 
