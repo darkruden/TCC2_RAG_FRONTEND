@@ -190,14 +190,24 @@ function App({ apiToken, userEmail, onLogout }) {
           addMessage('bot', data.message);
           break;
           
-        case 'job_enqueued':
-          setActiveJob({ jobId: data.job_id, type: 'general', message: data.message });
-          addMessage('bot', data.message);
-          if (window.chrome && chrome.runtime) {
-            const jobType = data.message.includes('ingestão') ? 'ingest' : 'report';
-            chrome.runtime.sendMessage({ action: 'startPolling', jobId: data.job_id, type: jobType });
-          }
-          break;
+          case 'job_enqueued':
+            setActiveJob({ jobId: data.job_id, type: 'general', message: data.message });
+            addMessage('bot', data.message);
+            
+            if (window.chrome && chrome.runtime) {
+              // --- LÓGICA DE DETECÇÃO MELHORADA ---
+              let jobType = 'report'; // Padrão
+              
+              if (data.message.toLowerCase().includes('ingestão')) {
+                  jobType = 'ingest';
+              } else if (data.message.toLowerCase().includes('envio')) {
+                  // Se a mensagem fala em "envio", é email. Não queremos baixar.
+                  jobType = 'email'; 
+              }
+              
+              chrome.runtime.sendMessage({ action: 'startPolling', jobId: data.job_id, type: jobType });
+            }
+            break;
           
         default:
           addMessage('bot', `Houve um erro: ${data.message}`);

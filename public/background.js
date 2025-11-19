@@ -136,19 +136,29 @@ async function pollJobStatus(jobId, type) {
 
     // SÓ LOGAMOS QUANDO TERMINA OU FALHA
     if (statusData.status === 'finished') {
-      console.log(`[BG] Tarefa ${jobId} FINALIZADA.`); // Log único de sucesso
+      console.log(`[BG] Tarefa ${jobId} FINALIZADA.`);
       stopPolling(jobId);
       stopLoadingAnimation('success');
       
       const resultData = statusData.result;
       
       if (type === 'ingest') {
-        // Aqui vem a mensagem "O repositório já é o mais atualizado"
         const successMessage = resultData.mensagem || resultData || "Tarefa concluída!";
         chrome.runtime.sendMessage({ action: 'job_finished', jobId, type, message: successMessage });
         showNotification(`✅ Concluído`, successMessage, jobId);
       
+      } else if (type === 'email') {
+        // --- NOVO BLOCO: Só avisa, NÃO baixa ---
+        chrome.runtime.sendMessage({
+          action: 'job_finished',
+          jobId: jobId,
+          type: type,
+          message: `✅ Email enviado com sucesso!`
+        });
+        showNotification(`✅ Sucesso`, `O relatório foi enviado para o seu email.`, jobId);
+      
       } else if (type === 'report') {
+        // Comportamento antigo: Baixa o arquivo
         const filename = resultData;
         chrome.runtime.sendMessage({
           action: 'job_finished',
