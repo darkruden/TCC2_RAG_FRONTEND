@@ -50,7 +50,9 @@ const ChatMessage = React.memo(function ChatMessage({ message }) {
           color: isUser ? 'primary.contrastText' : 'text.primary',
           maxWidth: '85%',
           borderRadius: isUser ? '20px 20px 5px 20px' : '20px 20px 20px 5px',
-          
+          wordBreak: 'break-word',       // Quebra palavras normais se necessário
+          overflowWrap: 'anywhere',      // Força quebra em qualquer ponto para strings longas (URLs, Hashes)
+          minWidth: 0,                   // Garante comportamento correto em flexbox
           '& h1, & h2, & h3, & h4, & h5, & h6': { mt: 1, mb: 1, fontWeight: 'bold', color: isUser ? 'inherit' : 'primary.main', borderBottom: 'none' },
           '& code': { backgroundColor: isUser ? 'rgba(255, 255, 255, 0.2)' : 'rgba(139, 148, 158, 0.2)', borderRadius: '4px', px: '4px', py: '2px', fontSize: '90%' },
           '& pre': { backgroundColor: '#0d1117', color: '#c9d1d9', p: 1, borderRadius: '6px', overflowX: 'auto', mt: 1, mb: 0, whiteSpace: 'pre-wrap' },
@@ -240,7 +242,33 @@ function App({ apiToken, userEmail, onLogout }) {
         <Stack direction="row" spacing={1} alignItems="center">
           <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".txt,.md" />
           <Tooltip title="Anexar"><IconButton onClick={handleAttachClick} disabled={isInputDisabled}><AttachFileIcon /></IconButton></Tooltip>
-          <TextField fullWidth variant="outlined" size="small" placeholder="Digite sua mensagem..." value={inputPrompt} onChange={(e) => setInputPrompt(e.target.value)} disabled={isInputDisabled} autoFocus />
+          <TextField 
+  fullWidth 
+  variant="outlined" 
+  size="small" 
+  placeholder="Digite sua mensagem... (Shift+Enter para pular linha)" 
+  
+  // --- INÍCIO DAS ALTERAÇÕES ---
+  multiline               // Habilita múltiplas linhas
+  maxRows={4}             // Cresce até 4 linhas, depois cria scroll
+  value={inputPrompt} 
+  onChange={(e) => setInputPrompt(e.target.value)} 
+  disabled={isInputDisabled} 
+  autoFocus
+  
+  // Handler para enviar com Enter (sem Shift)
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault(); // Evita pular linha
+      // Precisamos passar o evento ou criar um objeto sintético se handleChatSubmit esperar um
+      // Como handleChatSubmit usa e.preventDefault(), passamos o evento 'e'
+      if (inputPrompt.trim() || arquivo) {
+          handleChatSubmit(e);
+      }
+    }
+  }}
+  // --- FIM DAS ALTERAÇÕES ---
+/>
           <IconButton type="submit" color="primary" disabled={isInputDisabled || (!inputPrompt.trim() && !arquivo)}><SendIcon /></IconButton>
         </Stack>
       </Box>
