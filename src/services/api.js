@@ -15,6 +15,7 @@ const API_URL = 'https://meu-tcc-testes-041c1dd46d1d.herokuapp.com';
  * @param {string} apiToken O token (API Key) pessoal do usuário
  * @returns {axios.AxiosInstance}
  */
+
 export const createApiClient = (apiToken) => {
   return axios.create({
     baseURL: API_URL, // <-- Agora usa a URL correta
@@ -106,6 +107,22 @@ export const deleteSchedule = async (apiClient, scheduleId) => {
   }
 };
 // --- FIM DA ADIÇÃO ---
+
+/**
+ * Atualiza um agendamento existente.
+ * @param {axios.AxiosInstance} apiClient 
+ * @param {string} scheduleId 
+ * @param {object} updateData { titulo, prompt_relatorio, frequencia }
+ */
+export const updateSchedule = async (apiClient, scheduleId, updateData) => {
+  try {
+    const { data } = await apiClient.patch(`/api/schedules/${scheduleId}`, updateData);
+    return data;
+  } catch (error) {
+    console.error("Erro ao atualizar agendamento:", error);
+    throw error.response?.data || new Error(error.message);
+  }
+};
 
 /**
  * Conecta-se ao endpoint de streaming.
