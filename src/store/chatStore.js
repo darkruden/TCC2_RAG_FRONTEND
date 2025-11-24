@@ -2,6 +2,19 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+// --- CONSTANTE DE BOAS-VINDAS (Markdown) ---
+const WELCOME_MESSAGE = `👋 **Olá! Sou seu assistente GitRAG.**
+
+Aqui está o que posso fazer por você:
+
+1. 🧠 **Chat com Código:** Pergunte sobre a lógica, arquitetura ou regras de negócio do repositório.
+2. 📂 **Análise de Arquivos:** Clique no clipe 📎 para anexar um arquivo (.txt/.md) com instruções e eu analisarei junto com o código.
+3. 📊 **Relatórios:** Peça *"Gere um relatório analítico"* para receber uma análise visual no seu email.
+4. ⏰ **Agendamento:** Peça *"Agende um relatório diário às 08:00"* para monitoramento automático.
+
+💡 **Exemplo de uso:**
+*"Explique como funciona a autenticação neste projeto."*`;
+
 const chromeStorage = {
   getItem: (name) => {
     return new Promise((resolve) => {
@@ -44,8 +57,9 @@ const chromeStorage = {
 export const useChatStore = create(
   persist(
     (set, get) => ({
+      // Inicializa com a mensagem rica
       messages: [
-        { id: '1', sender: 'bot', text: 'Olá! Como posso ajudar? Posso ingerir, consultar ou salvar uma instrução.' }
+        { id: '1', sender: 'bot', text: WELCOME_MESSAGE }
       ],
       inputPrompt: '',
       arquivo: null,
@@ -60,10 +74,11 @@ export const useChatStore = create(
         }));
       },
       
+      // Reseta para a mensagem rica
       clearChat: () => {
         set({
           messages: [
-            { id: '1', sender: 'bot', text: 'Olá! Como posso ajudar?' }
+            { id: '1', sender: 'bot', text: WELCOME_MESSAGE }
           ],
           inputPrompt: '',
           arquivo: null,
@@ -83,12 +98,11 @@ export const useChatStore = create(
         }));
       },
       
-      // --- AÇÃO NOVA: Salva as fontes na última mensagem ---
       setLastMessageSources: (sources) => {
         set((state) => ({
           messages: state.messages.map((msg, index) => 
             index === state.messages.length - 1 
-            ? { ...msg, sources: sources } // Adiciona a propriedade 'sources'
+            ? { ...msg, sources: sources } 
             : msg
           )
         }));
