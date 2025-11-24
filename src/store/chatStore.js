@@ -1,20 +1,21 @@
-// CÓDIGO COMPLETO E CORRIGIDO PARA: src/store/chatStore.js
+// CÓDIGO ATUALIZADO: src/store/chatStore.js
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-// --- CONSTANTE DE BOAS-VINDAS (Markdown) ---
+// --- NOVA MENSAGEM DE BOAS-VINDAS (Atualizada com a feature de Debugging) ---
 const WELCOME_MESSAGE = `👋 **Olá! Sou seu assistente GitRAG.**
 
-Aqui está o que posso fazer por você:
+Eu cruzo o conhecimento do seu repositório com IA para te ajudar nestas 4 frentes:
 
-1. 🧠 **Chat com Código:** Pergunte sobre a lógica, arquitetura ou regras de negócio do repositório.
-2. 📂 **Análise de Arquivos:** Clique no clipe 📎 para anexar um arquivo (.txt/.md) com instruções e eu analisarei junto com o código.
-3. 📊 **Relatórios:** Peça *"Gere um relatório analítico"* para receber uma análise visual no seu email.
-4. ⏰ **Agendamento:** Peça *"Agende um relatório diário às 08:00"* para monitoramento automático.
+1. 🧠 **Tire Dúvidas (RAG):** Pergunte sobre a arquitetura, regras de negócio ou onde uma feature foi implementada.
+2. 📎 **Debug & Análise de Arquivos:** Clique no clipe para anexar um **Log de Erro** ou um **Código Externo**. Eu vou analisá-lo usando o contexto do projeto para descobrir a causa raiz.
+3. 📊 **Relatórios Gerenciais:** Peça *"Gere um relatório de progresso"* para receber métricas e gráficos visuais no seu email.
+4. ⏰ **Monitoramento Autônomo:** Peça *"Agende um relatório diário às 08:00"* e eu vigiarei o repositório para você.
 
-💡 **Exemplo de uso:**
-*"Explique como funciona a autenticação neste projeto."*`;
+💡 **Tente agora:**
+*Anexe um arquivo de log e pergunte: "Por que esse erro está acontecendo?"*`;
 
+// --- Configuração do Storage (Chrome vs Local) ---
 const chromeStorage = {
   getItem: (name) => {
     return new Promise((resolve) => {
@@ -23,7 +24,7 @@ const chromeStorage = {
           resolve(result[name] ? JSON.stringify(result[name]) : null);
         });
       } else {
-        console.warn("chrome.storage.local não encontrado, usando localStorage como fallback.");
+        // Fallback para desenvolvimento local (npm start)
         resolve(localStorage.getItem(name));
       }
     });
@@ -57,7 +58,7 @@ const chromeStorage = {
 export const useChatStore = create(
   persist(
     (set, get) => ({
-      // Inicializa com a mensagem rica
+      // Inicia com a mensagem rica
       messages: [
         { id: '1', sender: 'bot', text: WELCOME_MESSAGE }
       ],
@@ -74,7 +75,7 @@ export const useChatStore = create(
         }));
       },
       
-      // Reseta para a mensagem rica
+      // Ao limpar o chat, restaura a mensagem de boas-vindas
       clearChat: () => {
         set({
           messages: [
