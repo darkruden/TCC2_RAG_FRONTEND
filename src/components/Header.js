@@ -1,19 +1,22 @@
+// CÓDIGO COMPLETO E CORRIGIDO PARA: src/components/Header.js
+
 import React, { useState } from 'react';
 import { Box, Typography, IconButton, Menu, MenuItem } from '@mui/material';
 
 // --- INÍCIO DA CORREÇÃO ---
-// Adiciona 'Event as EventIcon' à importação existente
+// Adiciona 'ClearAll as ClearAllIcon' à importação existente
 import { 
   Menu as MenuIcon, 
   Logout as LogoutIcon,
-  Event as EventIcon // <-- ADICIONADO AQUI
+  Event as EventIcon, 
+  ClearAll as ClearAllIcon // <-- ADICIONADO AQUI
 } from '@mui/icons-material';
 // --- FIM DA CORREÇÃO ---
 
 import logo from '../assets/logo.png';
 
-// --- 1. ACEITAR PROPS DE AUTH ---
-const Header = ({ userEmail, onLogout, onOpenSchedules }) => {
+// --- 1. ACEITAR NOVA PROP ---
+const Header = ({ userEmail, onLogout, onOpenSchedules, onClearChat }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
 
@@ -30,10 +33,15 @@ const Header = ({ userEmail, onLogout, onOpenSchedules }) => {
     onLogout();
   };
 
-// --- 2. NOVA FUNÇÃO ---
+// --- 2. NOVA FUNÇÃO DE CLEAR ---
+const handleClear = () => {
+  handleClose();
+  onClearChat(); // Chama a função passada pelo App.js
+};
+
 const handleOpenSchedules = () => {
   handleClose();
-  onOpenSchedules(); // Chama a função passada pelo App.js
+  onOpenSchedules(); 
 };
 
 return (
@@ -85,7 +93,12 @@ return (
         open={open}
         onClose={handleClose}
       >
-        {/* --- 4. NOVO BOTÃO DE MENU --- */}
+        {/* NOVO: Botão de Limpar Chat */}
+        <MenuItem onClick={handleClear}>
+          <ClearAllIcon sx={{ mr: 1, fontSize: '1.2rem' }} />
+          Limpar Chat
+        </MenuItem>
+
         <MenuItem onClick={handleOpenSchedules}>
           <EventIcon sx={{ mr: 1, fontSize: '1.2rem' }} />
           Meus Agendamentos

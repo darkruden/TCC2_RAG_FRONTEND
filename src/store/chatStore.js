@@ -1,22 +1,30 @@
-// CÓDIGO COMPLETO E CORRIGIDO PARA: src/store/chatStore.js
-// (Adiciona os estados de streaming que faltavam)
-
+// CÓDIGO ATUALIZADO: src/store/chatStore.js
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-// Define o armazenamento (storage) que o Zustand usará
+// --- NOVA MENSAGEM DE BOAS-VINDAS (Atualizada com a feature de Debugging) ---
+const WELCOME_MESSAGE = `👋 **Olá! Sou seu assistente GitRAG.**
+
+Eu cruzo o conhecimento do seu repositório com IA para te ajudar nestas 4 frentes:
+
+1. 🧠 **Tire Dúvidas (RAG):** Pergunte sobre a arquitetura, regras de negócio ou onde uma feature foi implementada.
+2. 📎 **Debug & Análise de Arquivos:** Clique no clipe para anexar um **Log de Erro** ou um **Código Externo**. Eu vou analisá-lo usando o contexto do projeto para descobrir a causa raiz.
+3. 📊 **Relatórios Gerenciais:** Peça *"Gere um relatório de progresso"* para receber métricas e gráficos visuais no seu email.
+4. ⏰ **Monitoramento Autônomo:** Peça *"Agende um relatório diário às 08:00"* e eu vigiarei o repositório para você.
+
+💡 **Tente agora:**
+*Anexe um arquivo de log e pergunte: "Por que esse erro está acontecendo?"*`;
+
+// --- Configuração do Storage (Chrome vs Local) ---
 const chromeStorage = {
   getItem: (name) => {
     return new Promise((resolve) => {
-      // Verifica se a API 'chrome.storage' existe
       if (window.chrome && chrome.storage && chrome.storage.local) {
         chrome.storage.local.get([name], (result) => {
-          // Resolve com o valor (ou null se não encontrado)
           resolve(result[name] ? JSON.stringify(result[name]) : null);
         });
       } else {
-        // Fallback para localStorage (para 'npm start' no navegador)
-        console.warn("chrome.storage.local não encontrado, usando localStorage como fallback.");
+        // Fallback para desenvolvimento local (npm start)
         resolve(localStorage.getItem(name));
       }
     });
@@ -28,7 +36,6 @@ const chromeStorage = {
           resolve();
         });
       } else {
-        // Fallback para localStorage
         localStorage.setItem(name, value);
         resolve();
       }
@@ -41,7 +48,6 @@ const chromeStorage = {
           resolve();
         });
       } else {
-        // Fallback para localStorage
         localStorage.removeItem(name);
         resolve();
       }
@@ -49,20 +55,17 @@ const chromeStorage = {
   },
 };
 
-// Cria o "store"
 export const useChatStore = create(
-  // 1. 'persist' salva automaticamente o estado
   persist(
     (set, get) => ({
-      // --- ESTADO (STATE) ---
+      // Inicia com a mensagem rica
       messages: [
-        { id: '1', sender: 'bot', text: 'Olá! Como posso ajudar? Posso ingerir, consultar ou salvar uma instrução.' }
+        { id: '1', sender: 'bot', text: WELCOME_MESSAGE }
       ],
       inputPrompt: '',
       arquivo: null,
-      isStreaming: false, // <-- ADICIONADO
+      isStreaming: false,
       
-      // --- AÇÕES (ACTIONS) ---
       setInputPrompt: (prompt) => set({ inputPrompt: prompt }),
       setArquivo: (file) => set({ arquivo: file }),
       
@@ -72,10 +75,11 @@ export const useChatStore = create(
         }));
       },
       
+      // Ao limpar o chat, restaura a mensagem de boas-vindas
       clearChat: () => {
         set({
           messages: [
-            { id: '1', sender: 'bot', text: 'Olá! Como posso ajudar?' }
+            { id: '1', sender: 'bot', text: WELCOME_MESSAGE }
           ],
           inputPrompt: '',
           arquivo: null,
@@ -83,19 +87,28 @@ export const useChatStore = create(
         });
       },
       
-      // Ação de submit (não é mais chamada pelo App.js, mas mantida)
       submitPrompt: (userPrompt) => {
         get().addMessage('user', userPrompt);
         set({ inputPrompt: '', arquivo: null });
       },
 
-      // --- Ações de Streaming (ADICIONADAS) ---
       startBotMessage: () => {
         set((state) => ({
           isStreaming: true,
           messages: [...state.messages, { id: Date.now().toString(), sender: 'bot', text: '' }]
         }));
       },
+      
+      setLastMessageSources: (sources) => {
+        set((state) => ({
+          messages: state.messages.map((msg, index) => 
+            index === state.messages.length - 1 
+            ? { ...msg, sources: sources } 
+            : msg
+          )
+        }));
+      },
+
       appendLastMessage: (token) => {
         set((state) => ({
           messages: state.messages.map((msg, index) => 
@@ -110,9 +123,8 @@ export const useChatStore = create(
       },
     }),
     {
-      // 2. Configuração da persistência
-      name: 'tcc-rag-chat-storage', // Nome da chave no storage
-      storage: createJSONStorage(() => chromeStorage), // Usa o storage híbrido
+      name: 'tcc-rag-chat-storage',
+      storage: createJSONStorage(() => chromeStorage),
     }
   )
 );

@@ -15,6 +15,7 @@ const API_URL = 'https://meu-tcc-testes-041c1dd46d1d.herokuapp.com';
  * @param {string} apiToken O token (API Key) pessoal do usuário
  * @returns {axios.AxiosInstance}
  */
+
 export const createApiClient = (apiToken) => {
   return axios.create({
     baseURL: API_URL, // <-- Agora usa a URL correta
@@ -108,19 +109,37 @@ export const deleteSchedule = async (apiClient, scheduleId) => {
 // --- FIM DA ADIÇÃO ---
 
 /**
+ * Atualiza um agendamento existente.
+ * @param {axios.AxiosInstance} apiClient 
+ * @param {string} scheduleId 
+ * @param {object} updateData { titulo, prompt_relatorio, frequencia }
+ */
+export const updateSchedule = async (apiClient, scheduleId, updateData) => {
+  try {
+    const { data } = await apiClient.patch(`/api/schedules/${scheduleId}`, updateData);
+    return data;
+  } catch (error) {
+    console.error("Erro ao atualizar agendamento:", error);
+    throw error.response?.data || new Error(error.message);
+  }
+};
+
+/**
  * Conecta-se ao endpoint de streaming.
  */
 export const fetchChatStream = async ({
   streamArgs,
   apiToken,
   onToken,
+  onSources,
   onComplete,
   onError,
 }) => {
   console.log("Iniciando fetchChatStream...");
   
   try {
-    const response = await fetch(`${API_URL}/api/chat_stream`, { // <-- Agora usa a URL correta
+    // Usa a URL direta para garantir
+    const response = await fetch(`https://meu-tcc-testes-041c1dd46d1d.herokuapp.com/api/chat_stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -136,6 +155,10 @@ export const fetchChatStream = async ({
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
+    
+    let buffer = "";
+    let sourcesParsed = false;
+    const DELIMITER = "[[SOURCES_END]]";
 
     while (true) {
       const { done, value } = await reader.read();
@@ -145,8 +168,35 @@ export const fetchChatStream = async ({
         break;
       }
       
-      const chunk = decoder.decode(value);
-      onToken(chunk);
+      const chunk = decoder.decode(value, { stream: true });
+      
+      if (!sourcesParsed) {
+        buffer += chunk;
+        // Verifica se o delimitador chegou
+        if (buffer.includes(DELIMITER)) {
+            // Renomeado para evitar conflito de variáveis
+            const streamParts = buffer.split(DELIMITER);
+            const jsonPart = streamParts[0];
+            const textPart = streamParts[1] || ""; 
+            
+            // 1. Tenta parsear e enviar as fontes
+            try {
+                const sources = JSON.parse(jsonPart);
+                if (onSources) onSources(sources);
+            } catch (e) {
+                console.error("Erro ao parsear fontes do stream:", e);
+            }
+            
+            // 2. Envia o texto que sobrou imediatamente
+            onToken(textPart);
+            
+            sourcesParsed = true;
+            buffer = ""; // Limpa buffer
+        }
+      } else {
+        // Se já parseamos as fontes, tudo que vier é texto puro
+        onToken(chunk);
+      }
     }
 
   } catch (error) {
