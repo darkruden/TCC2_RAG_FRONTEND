@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "GitHub RAG TCC (Side Panel)",
+  "name": "GitRAG - Assistente de Código",
   "version": "2.0",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAosY+BTsehCl0rsZ72rBBSFUGsCiIXftcqeqTNQENHSqjsJNQNEHeuBQea9+ym73qba6RQ/Pp71Cidw8mtdQni9GBABUP+8U3zGzE3sK4qIbSRE5TjLPd+H3JMo7rXkO7Mwp4hS/KuqFNj916tAvisQhUYRno+94vOMQ4Qbnulb/4uS+jjccxYrFzL1X9uNegipd9nqbMpTjrIk+HCn6u0XK2xaer8K15SOZogFttgY5KI+fILolB5t63XiCHWXKQv6ryl9dtYV2oaKZByNjZHNDQfA8HxXxN1twZ33DWZ+mCcHC6RYBBj7qlxCFsyHTjgupXNV//ubxBmG1St21uUQIDAQAB",
   "description": "Extensão com RAG para análise de repositórios GitHub.",
@@ -19,7 +19,7 @@
   },
 
   "action": {
-    "default_title": "Abrir GitHub RAG"
+    "default_title": "GitRAG"
   },
 
   "side_panel": {
