@@ -5,7 +5,9 @@ node_modules/
 # Pasta de Build (CRÍTICO)
 # Esta pasta é gerada pelo 'npm run build'. Nunca deve ir para o Git.
 build/
-
+build.crx
+build.pem
+GitRAG.rar
 # Arquivos de Ambiente (O MAIS CRÍTICO)
 # Contém seus segredos, como o API_TOKEN.
 .env

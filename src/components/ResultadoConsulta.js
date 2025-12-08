@@ -7,10 +7,10 @@ import {
 // NOVO: Importação de ícones específicos para as fontes
 import { 
   Launch as LaunchIcon, 
-  BugReport as BugReportIcon,     // Para Issue
-  CallMerge as PullRequestIcon,   // Para Pull Request (Merge)
-  Commit as CommitIcon            // Para Commit
-} from '@mui/icons-material'; 
+  BugReport as BugReportIcon,     
+  CallMerge as PullRequestIcon,   
+  Commit as CommitIcon            
+} from '@mui/icons-material';
 
 const ResultadoConsulta = ({ resultado }) => {
   if (!resultado) return null;
@@ -22,7 +22,8 @@ const ResultadoConsulta = ({ resultado }) => {
       case 'issue':
         return <BugReportIcon sx={{ fontSize: '1.0rem', mr: 0.5 }} />;
       case 'pull_request':
-        return <PullMergeIcon sx={{ fontSize: '1.0rem', mr: 0.5 }} />;
+        // CORREÇÃO: Usando o nome do alias definido no import
+        return <PullRequestIcon sx={{ fontSize: '1.0rem', mr: 0.5 }} />;
       case 'commit':
         return <CommitIcon sx={{ fontSize: '1.0rem', mr: 0.5 }} />;
       default:
